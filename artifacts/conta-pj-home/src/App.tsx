@@ -530,7 +530,28 @@ function AutoatendimentoLiberacaoPage() {
 
   return (
     <AutoatendimentoShell>
-      <div className="auto-liberacao-backdrop">
+      <div className="auto-liberacao-stage">
+        <div className="auto-card auto-card-senha auto-liberacao-behind" aria-hidden="true">
+          <h1>Agência e Conta</h1>
+          <div className="auto-summary">
+            <div className="auto-summary-col">
+              <span>Agência</span>
+              <strong>{formatWithLastDigitSeparator(session.agency)}</strong>
+            </div>
+            <div className="auto-summary-col">
+              <span>Conta</span>
+              <strong>{formatWithLastDigitSeparator(session.account)}</strong>
+            </div>
+          </div>
+          <span className="auto-field-label">Senha de 8 dígitos</span>
+          <div className="auto-password-row">
+            <input type="password" placeholder="SENHA 8 DÍGITOS" value="" readOnly tabIndex={-1} />
+            <span className="auto-help-btn">?</span>
+          </div>
+          <span className="auto-continue">ENTRAR</span>
+          <span className="auto-other-access">Outra conta</span>
+        </div>
+
         <form
           className="auto-liberacao-modal"
           onSubmit={handleAvancar}
@@ -569,27 +590,27 @@ function AutoatendimentoLiberacaoPage() {
               maxLength={6}
               data-testid="liberacao-input-senha"
             />
-          </div>
 
-          <footer className="auto-liberacao-footer">
-            <button
-              type="button"
-              className="auto-liberacao-close"
-              aria-label="Fechar"
-              onClick={() => setLocation('/pessoa-fisica/senha')}
-              data-testid="liberacao-fechar"
-            >
-              x
-            </button>
-            <button
-              type="submit"
-              className="auto-liberacao-advance"
-              disabled={!canAdvance}
-              data-testid="liberacao-avancar"
-            >
-              AVANÇAR
-            </button>
-          </footer>
+            <footer className="auto-liberacao-footer">
+              <button
+                type="button"
+                className="auto-liberacao-close"
+                aria-label="Fechar"
+                onClick={() => setLocation('/pessoa-fisica/senha')}
+                data-testid="liberacao-fechar"
+              >
+                x
+              </button>
+              <button
+                type="submit"
+                className="auto-liberacao-advance"
+                disabled={!canAdvance}
+                data-testid="liberacao-avancar"
+              >
+                AVANÇAR
+              </button>
+            </footer>
+          </div>
         </form>
       </div>
     </AutoatendimentoShell>

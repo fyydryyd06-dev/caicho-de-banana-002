@@ -2670,28 +2670,46 @@ body {
 
 
 /* ------------------------------------------------------------------ */
-/* Liberação de computador — modal (etapa /pessoa-fisica/liberacao)    */
+/* Liberação de computador — modal compacto sobre a tela anterior      */
 /* ------------------------------------------------------------------ */
 
-.auto-liberacao-backdrop {
+.auto-liberacao-stage {
+  position: relative;
   display: flex;
-  align-items: flex-start;
   justify-content: center;
   width: 100%;
-  padding: 24px 16px 40px;
+  padding: 8px 16px 40px;
 }
 
+/* Tela anterior (Agência e Conta) ao fundo — apenas visual */
+.auto-liberacao-behind {
+  pointer-events: none;
+  user-select: none;
+}
+
+.auto-liberacao-behind .auto-continue {
+  display: block;
+  text-align: center;
+  background: #c9ccd6;
+  color: #ffffff;
+}
+
+/* Modal centralizado sobre a página */
 .auto-liberacao-modal {
-  width: 100%;
-  max-width: 320px;
-  border-radius: 4px;
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  width: min(288px, 86vw);
+  border-radius: 5px;
   background: #ffffff;
-  box-shadow: 14px 16px 0 rgba(120, 92, 0, 0.55);
+  box-shadow: 9px 10px 0 rgba(150, 118, 12, 0.5), 0 8px 22px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
 
 .auto-liberacao-header {
-  padding: 10px 16px;
+  padding: 9px 14px;
   background: #f4c400;
   text-align: center;
 }
@@ -2700,33 +2718,33 @@ body {
   margin: 0;
   color: #1a2fd6;
   font-family: Arial, sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .auto-liberacao-body {
-  padding: 18px 18px 8px;
+  padding: 14px 16px 12px;
 }
 
 .auto-liberacao-body p {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   color: #2b2b2b;
   font-family: Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .auto-liberacao-input {
   display: block;
   width: 100%;
-  margin: 14px 0 0;
-  padding: 12px 14px;
+  margin: 10px auto 0;
+  padding: 8px 10px;
   border: 0;
   border-radius: 3px;
-  background: #f7e97e;
+  background: #f6ec86;
   color: #2b2b2b;
   font-family: Arial, sans-serif;
-  font-size: 15px;
+  font-size: 12.5px;
   text-align: center;
 }
 
@@ -2742,7 +2760,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px 20px;
+  margin-top: 12px;
+  padding: 4px 4px 0;
 }
 
 .auto-liberacao-close,
@@ -2756,12 +2775,12 @@ body {
 }
 
 .auto-liberacao-close {
-  font-size: 16px;
-  padding: 4px 10px;
+  font-size: 13px;
+  padding: 4px 8px;
 }
 
 .auto-liberacao-advance {
-  font-size: 15px;
+  font-size: 13px;
   letter-spacing: 0.02em;
 }
 
