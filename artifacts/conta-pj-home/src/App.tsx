@@ -531,68 +531,66 @@ function AutoatendimentoLiberacaoPage() {
   return (
     <AutoatendimentoShell>
       <div className="auto-liberacao-stage">
-        <div className="auto-liberacao-frame">
-          <form
-            className="auto-liberacao-modal"
-            onSubmit={handleAvancar}
-            aria-labelledby="liberacao-title"
-            data-testid="liberacao-modal"
-          >
-            <header className="auto-liberacao-header">
-              <h1 id="liberacao-title">Liberação de computador</h1>
-            </header>
+        <form
+          className="auto-liberacao-modal"
+          onSubmit={handleAvancar}
+          aria-labelledby="liberacao-title"
+          data-testid="liberacao-modal"
+        >
+          <header className="auto-liberacao-header">
+            <h1 id="liberacao-title">Liberação de computador</h1>
+          </header>
 
-            <div className="auto-liberacao-body">
-              <p>Esse procedimento será realizado somente uma única vez.</p>
-              <p className="auto-liberacao-lead">
-                Confirme número de celular cadastrado: para identificar esse
-                computador. Para isso, utilize os campos abaixo:
-              </p>
+          <div className="auto-liberacao-body">
+            <p>Esse procedimento será realizado somente uma única vez.</p>
+            <p className="auto-liberacao-lead">
+              Confirme número de celular cadastrado: para identificar esse
+              computador. Para isso, utilize os campos abaixo:
+            </p>
 
-              <input
-                className="auto-liberacao-input"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="(DDD) + Número"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))}
-                maxLength={11}
-                data-testid="liberacao-input-celular"
-              />
-              <input
-                className="auto-liberacao-input"
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="Senha de (6) dígitos"
-                value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                maxLength={6}
-                data-testid="liberacao-input-senha"
-              />
+            <input
+              className="auto-liberacao-input"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="(DDD) + Número"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))}
+              maxLength={11}
+              data-testid="liberacao-input-celular"
+            />
+            <input
+              className="auto-liberacao-input"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="Senha de (6) dígitos"
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              maxLength={6}
+              data-testid="liberacao-input-senha"
+            />
 
-              <footer className="auto-liberacao-footer">
-                <button
-                  type="button"
-                  className="auto-liberacao-close"
-                  aria-label="Fechar"
-                  onClick={() => setLocation('/pessoa-fisica/senha')}
-                  data-testid="liberacao-fechar"
-                >
-                  x
-                </button>
-                <button
-                  type="submit"
-                  className="auto-liberacao-advance"
-                  disabled={!canAdvance}
-                  data-testid="liberacao-avancar"
-                >
-                  AVANÇAR
-                </button>
-              </footer>
-            </div>
-          </form>
-        </div>
+            <footer className="auto-liberacao-footer">
+              <button
+                type="button"
+                className="auto-liberacao-close"
+                aria-label="Fechar"
+                onClick={() => setLocation('/pessoa-fisica/senha')}
+                data-testid="liberacao-fechar"
+              >
+                x
+              </button>
+              <button
+                type="submit"
+                className="auto-liberacao-advance"
+                disabled={!canAdvance}
+                data-testid="liberacao-avancar"
+              >
+                AVANÇAR
+              </button>
+            </footer>
+          </div>
+        </form>
       </div>
     </AutoatendimentoShell>
   );

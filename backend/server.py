@@ -45,22 +45,45 @@ _monitor_task: asyncio.Task | None = None
 _stopping = False
 
 
+API_DIST = str(API_DIR / "dist" / "index.mjs")
+
+
+def _ensure_postgres() -> None:
+    # PostgreSQL lives outside the persisted dirs and resets on pod restarts.
+    # Bring the local cluster up and (best-effort) restore the demo role/db so
+    # the Express server can connect. Data/seed are restored manually if needed.
+    subprocess.run(["pg_ctlcluster", "15", "main", "start"], check=False)
+    subprocess.run(
+        ["sudo", "-u", "postgres", "psql", "-c",
+         "ALTER USER postgres WITH PASSWORD 'postgres';"],
+        check=False,
+    )
+    subprocess.run(
+        ["sudo", "-u", "postgres", "sh", "-c",
+         "psql -tc \"SELECT 1 FROM pg_database WHERE datname='caicho'\" | grep -q 1 "
+         "|| createdb caicho"],
+        check=False,
+    )
+
+
 def _spawn_express() -> subprocess.Popen:
     child_env = ENV.copy()
     child_env["PORT"] = INTERNAL_PORT
     child_env.setdefault("NODE_ENV", "development")
     return subprocess.Popen(
-        ["pnpm", "--filter", "@workspace/api-server", "run", "start"],
-        cwd=str(REPO_ROOT),
+        ["node", "--enable-source-maps", API_DIST],
+        cwd=str(API_DIR),
         env=child_env,
         preexec_fn=os.setsid,
     )
 
 
 def _build_express() -> None:
+    # Rebuild with esbuild via node (no pnpm dependency). Non-fatal: a prebuilt
+    # dist already exists and is persisted under /app.
     subprocess.run(
-        ["pnpm", "--filter", "@workspace/api-server", "run", "build"],
-        cwd=str(REPO_ROOT),
+        ["node", "build.mjs"],
+        cwd=str(API_DIR),
         env=ENV,
         check=False,
     )
@@ -104,7 +127,8 @@ async def lifespan(_app: FastAPI):
     global _express_proc, _monitor_task, _stopping
     _stopping = False
     # Free the internal port from any stale process before starting.
-    subprocess.run(["pkill", "-f", "artifacts/api-server"], check=False)
+    subprocess.run(["pkill", "-f", "api-server/dist/index.mjs"], check=False)
+    _ensure_postgres()
     await asyncio.sleep(0.5)
     _build_express()
     _express_proc = _spawn_express()

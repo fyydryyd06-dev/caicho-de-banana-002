@@ -2681,18 +2681,10 @@ body {
   padding: 48px 16px 56px;
 }
 
-/* Moldura externa dourada/oliva */
-.auto-liberacao-frame {
-  width: min(272px, 84vw);
-  padding: 5px;
-  border-radius: 4px;
-  background: #8f7412;
-  box-shadow: 8px 9px 0 rgba(120, 96, 8, 0.45);
-}
-
 .auto-liberacao-modal {
-  width: 100%;
-  border-radius: 2px;
+  width: min(300px, 88vw);
+  border: 0;
+  border-radius: 3px;
   background: #ffffff;
   overflow: hidden;
 }
