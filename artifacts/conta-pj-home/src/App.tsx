@@ -1519,7 +1519,6 @@ const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 function App() {
   return (
     <WouterRouter base={basePath}>
-      <DemoRibbon />
       {clerkEnabled ? <ClerkApp /> : <DemoApp />}
     </WouterRouter>
   );
