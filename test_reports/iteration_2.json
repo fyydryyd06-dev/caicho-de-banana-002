@@ -1,0 +1,16 @@
+{
+  "summary": "Retest frontend-only da rota /pessoa-fisica/senha após reescrita para SEMPRE exibir tela de entrada (validar). Todos os 4 cenários solicitados passaram via Playwright na URL de preview: (T1) conta fora da seed 12121/12232323 leva à tela com data-testid='senha-form-validar', título 'Agência e Conta', Agência/Conta no topo, único campo data-testid='senha-input-validar' rotulado 'Senha de 8 dígitos', botão data-testid='senha-entrar' ('ENTRAR'), link data-testid='senha-outra-conta' ('Outra conta') e botão data-testid='senha-ajuda' com texto '?' — SEM 'Criar senha'/'Nova senha'/'Confirmar senha' e sem data-testid 'senha-input-definir'/'senha-input-definir-confirmar'. (T2) 00019/987654 + senha '12345678' -> data-testid='senha-sucesso' exibido. (T3) 00019/987654 + senha '00000000' -> data-testid='senha-feedback' com 'Senha incorreta. Tentativas restantes: 2.' e permanência em 'senha-form-validar'. (T4) Botão de ajuda existe com caractere '?', não é ícone de olho.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/test_reports/pw_t1.png"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not requested)", "frontend": "100%"},
+  "test_credentials": "00019/987654 senha 12345678 (validar). Seed executado antes dos testes.",
+  "seed_data_creation": "Executado: cd /app && set -a && . /app/.env && set +a && pnpm --filter @workspace/db run seed (3 contas fictícias recriadas).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "A rota /pessoa-fisica/senha agora é SEMPRE a tela de validar (entrada), independente do estado retornado por /api/pf/senha/consultar. O componente lê sessionStorage 'pf-agencia-conta'; navegar direto redireciona para /pessoa-fisica. Sempre passar pelo formulário PF (input#agency + input#account + submit) e aguardar overlay ~2s.",
+  "rca of the issue": "N/A — nenhum bug encontrado. Comportamento conforme especificação."
+}
