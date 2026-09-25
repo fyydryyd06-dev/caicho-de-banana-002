@@ -521,7 +521,15 @@ function AutoatendimentoLiberacaoPage() {
     return <Redirect to="/pessoa-fisica" />;
   }
 
-  const canAdvance = phone.replace(/\D/g, '').length >= 10 && pin.length === 6;
+  // Máscara de celular fictício: (99) 99123-4567 (11 dígitos).
+  const formatPhone = (digits: string) => {
+    const d = digits.slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : '';
+    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  };
+
+  const canAdvance = phone.length === 11 && pin.length === 6;
 
   const handleAvancar = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -553,9 +561,9 @@ function AutoatendimentoLiberacaoPage() {
               inputMode="numeric"
               autoComplete="off"
               placeholder="(DDD) + Número"
-              value={phone}
+              value={formatPhone(phone)}
               onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))}
-              maxLength={11}
+              maxLength={16}
               data-testid="liberacao-input-celular"
             />
             <input

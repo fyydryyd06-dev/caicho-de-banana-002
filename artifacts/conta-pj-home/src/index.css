@@ -2683,15 +2683,16 @@ body {
 
 .auto-liberacao-modal {
   width: min(300px, 88vw);
-  border: 0;
-  border-radius: 3px;
+  border: 5px solid #a5820f;
+  border-radius: 6px;
   background: #ffffff;
+  box-shadow: 0 16px 38px rgba(60, 48, 6, 0.35), 0 4px 12px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
 
 .auto-liberacao-header {
-  padding: 8px 12px;
-  background: #f4c400;
+  padding: 9px 12px;
+  background: #f6c400;
   text-align: center;
 }
 
@@ -2704,7 +2705,7 @@ body {
 }
 
 .auto-liberacao-body {
-  padding: 14px 14px 12px;
+  padding: 14px 20px 14px;
 }
 
 .auto-liberacao-body p {
