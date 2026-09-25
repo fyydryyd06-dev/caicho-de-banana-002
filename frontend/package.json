@@ -1,0 +1,8 @@
+{
+  "name": "caicho-frontend-launcher",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "sh ./start.sh"
+  }
+}

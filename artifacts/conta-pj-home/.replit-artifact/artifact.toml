@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Pra Você | Banco do Brasil"
+description = "Página inicial do Banco do Brasil para você, reconstruída a partir da captura visual enviada pelo usuário, com navegação e acesso às telas de autenticação."
+version = "1.0.0"
+id = "artifacts/conta-pj-home"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20083
+
+[services.development]
+run = "pnpm --filter @workspace/conta-pj-home run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/conta-pj-home", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/conta-pj-home/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20083"
+BASE_PATH = "/"

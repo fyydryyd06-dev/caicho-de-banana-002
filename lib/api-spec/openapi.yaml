@@ -1,0 +1,250 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: pf-senha
+    description: >-
+      Fluxo de senha (Pessoa Física) — AMBIENTE DE DEMONSTRAÇÃO. Trabalha
+      exclusivamente com dados fictícios; nenhuma credencial real é coletada.
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /pf/senha/consultar:
+    post:
+      operationId: consultarConta
+      tags: [pf-senha]
+      summary: Consultar situação da conta fictícia
+      description: >-
+        Verifica se a conta de demonstração existe e se já possui senha
+        definida, para decidir entre definir ou validar a senha.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContaLookup"
+      responses:
+        "200":
+          description: Situação da conta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContaStatus"
+  /pf/senha/definir:
+    post:
+      operationId: definirSenha
+      tags: [pf-senha]
+      summary: Definir senha (primeiro acesso, demo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DefinirSenha"
+      responses:
+        "200":
+          description: Resultado da operação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenhaResultado"
+  /pf/senha/validar:
+    post:
+      operationId: validarSenha
+      tags: [pf-senha]
+      summary: Validar senha (login demo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidarSenha"
+      responses:
+        "200":
+          description: Resultado da validação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenhaResultado"
+  /pf/senha/recuperar:
+    post:
+      operationId: iniciarRecuperacao
+      tags: [pf-senha]
+      summary: Iniciar recuperação de senha (demo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContaLookup"
+      responses:
+        "200":
+          description: Recuperação iniciada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecuperacaoIniciada"
+  /pf/senha/redefinir:
+    post:
+      operationId: redefinirSenha
+      tags: [pf-senha]
+      summary: Redefinir senha com código de recuperação (demo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedefinirSenha"
+      responses:
+        "200":
+          description: Resultado da redefinição
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenhaResultado"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ContaLookup:
+      type: object
+      properties:
+        agency:
+          type: string
+          pattern: "^[0-9]{1,6}$"
+        account:
+          type: string
+          pattern: "^[0-9]{1,12}$"
+      required:
+        - agency
+        - account
+    ContaStatus:
+      type: object
+      properties:
+        exists:
+          type: boolean
+        hasPassword:
+          type: boolean
+        locked:
+          type: boolean
+        holderName:
+          type: string
+      required:
+        - exists
+        - hasPassword
+        - locked
+    DefinirSenha:
+      type: object
+      properties:
+        agency:
+          type: string
+          pattern: "^[0-9]{1,6}$"
+        account:
+          type: string
+          pattern: "^[0-9]{1,12}$"
+        password:
+          type: string
+          pattern: "^[0-9]{8}$"
+        confirmPassword:
+          type: string
+          pattern: "^[0-9]{8}$"
+      required:
+        - agency
+        - account
+        - password
+        - confirmPassword
+    ValidarSenha:
+      type: object
+      properties:
+        agency:
+          type: string
+          pattern: "^[0-9]{1,6}$"
+        account:
+          type: string
+          pattern: "^[0-9]{1,12}$"
+        password:
+          type: string
+          pattern: "^[0-9]{8}$"
+      required:
+        - agency
+        - account
+        - password
+    RedefinirSenha:
+      type: object
+      properties:
+        agency:
+          type: string
+          pattern: "^[0-9]{1,6}$"
+        account:
+          type: string
+          pattern: "^[0-9]{1,12}$"
+        recoveryCode:
+          type: string
+          pattern: "^[0-9]{6}$"
+        newPassword:
+          type: string
+          pattern: "^[0-9]{8}$"
+        confirmNewPassword:
+          type: string
+          pattern: "^[0-9]{8}$"
+      required:
+        - agency
+        - account
+        - recoveryCode
+        - newPassword
+        - confirmNewPassword
+    SenhaResultado:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        holderName:
+          type: string
+        attemptsRemaining:
+          type: integer
+        locked:
+          type: boolean
+      required:
+        - success
+        - message
+        - locked
+    RecuperacaoIniciada:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        maskedPhone:
+          type: string
+        recoveryCode:
+          type: string
+      required:
+        - success
+        - message

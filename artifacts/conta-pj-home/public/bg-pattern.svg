@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#f7f7f9" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Cart -->
+    <path d="M10 20h4l2.5 12h11l2-8H15 M17 36a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M25 36a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+    <!-- Cup -->
+    <path d="M50 20h12v6a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6v-6z M62 22h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2" />
+    <!-- Leaf -->
+    <path d="M90 30c0-6 4-10 10-10 0 6-4 10-10 10z M90 30c0 6-4 10-10 10 0-6 4-10 10-10z" />
+    <!-- Bag -->
+    <path d="M15 70h10v10H15z M18 70v-3a2 2 0 0 1 4 0v3" />
+    <!-- Star -->
+    <path d="M56 65l2-5 2 5 5 1-4 3 1 5-4-2-4 2 1-5-4-3 5-1z" />
+    <!-- Book -->
+    <path d="M90 65h10v12H90z M90 71h10 M90 65a2 2 0 0 0-2 2v10" />
+    <!-- Phone -->
+    <path d="M15 110h10v15H15z M18 112h4" />
+    <!-- Gamepad -->
+    <path d="M50 115h14v-6a4 4 0 0 0-4-4h-6a4 4 0 0 0-4 4v6z M53 110h2 M54 109v2 M61 110h.01 M61 112h.01" />
+    <!-- Camera -->
+    <path d="M90 110h12v8H90z M94 110v-2h4v2 M96 114a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+  </g>
+</svg>
