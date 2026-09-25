@@ -13,15 +13,11 @@ import {
 } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
-import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, CheckCircle2, KeyRound, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  useConsultarConta,
-  useDefinirSenha,
   useValidarSenha,
-  useIniciarRecuperacao,
-  useRedefinirSenha,
 } from '@workspace/api-client-react';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -418,192 +414,45 @@ function AutoatendimentoPage() {
   );
 }
 
-type SenhaMode = 'loading' | 'definir' | 'validar' | 'bloqueada' | 'recuperar' | 'sucesso';
-type Feedback = { type: 'error' | 'success' | 'info'; text: string } | null;
-
-const onlyDigits = (value: string, max: number) => value.replace(/\D/g, '').slice(0, max);
-
 function AutoatendimentoPasswordPage() {
   const [, setLocation] = useLocation();
   const session = readPfSession();
 
-  const [mode, setMode] = useState<SenhaMode>('loading');
-  const [holderName, setHolderName] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<Feedback>(null);
-
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [holderName, setHolderName] = useState<string | null>(null);
+  const [entered, setEntered] = useState(false);
 
-  const [recoverStep, setRecoverStep] = useState<'solicitar' | 'confirmar'>('solicitar');
-  const [recoveryCode, setRecoveryCode] = useState('');
-  const [demoCode, setDemoCode] = useState<string | null>(null);
-  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-
-  const consultar = useConsultarConta();
-  const definir = useDefinirSenha();
   const validar = useValidarSenha();
-  const iniciarRecuperacao = useIniciarRecuperacao();
-  const redefinir = useRedefinirSenha();
-
-  useEffect(() => {
-    if (!session) return;
-    consultar.mutate(
-      { data: { agency: session.agency, account: session.account } },
-      {
-        onSuccess: (data) => {
-          setHolderName(data.holderName ?? null);
-          if (data.locked) setMode('bloqueada');
-          else if (data.hasPassword) setMode('validar');
-          else setMode('definir');
-        },
-        onError: () => setMode('definir'),
-      },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   if (!session) {
     return <Redirect to="/pessoa-fisica" />;
   }
 
-  const resetFeedback = () => setFeedback(null);
-  const busy =
-    consultar.isPending ||
-    definir.isPending ||
-    validar.isPending ||
-    iniciarRecuperacao.isPending ||
-    redefinir.isPending;
-
-  const handleValidar = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    resetFeedback();
+    setFeedback(null);
     validar.mutate(
       { data: { agency: session.agency, account: session.account, password } },
       {
         onSuccess: (data) => {
+          // Não armazenamos a senha digitada: apenas validamos contra a seed fictícia.
+          setPassword('');
           if (data.success) {
-            setHolderName(data.holderName ?? holderName);
+            setHolderName(data.holderName ?? null);
             setFeedback({ type: 'success', text: data.message });
-            setMode('sucesso');
-          } else {
-            setPassword('');
-            if (data.locked) setMode('bloqueada');
-            setFeedback({ type: 'error', text: data.message });
-          }
-        },
-        onError: () =>
-          setFeedback({ type: 'error', text: 'Não foi possível validar agora. Tente novamente.' }),
-      },
-    );
-  };
-
-  const handleDefinir = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    resetFeedback();
-    if (password !== confirmPassword) {
-      setFeedback({ type: 'error', text: 'As senhas não conferem.' });
-      return;
-    }
-    definir.mutate(
-      {
-        data: {
-          agency: session.agency,
-          account: session.account,
-          password,
-          confirmPassword,
-        },
-      },
-      {
-        onSuccess: (data) => {
-          if (data.success) {
-            setHolderName(data.holderName ?? holderName);
-            setFeedback({ type: 'success', text: data.message });
-            setMode('sucesso');
-          } else {
-            setFeedback({ type: 'error', text: data.message });
-            if (data.locked) setMode('bloqueada');
-          }
-        },
-        onError: () =>
-          setFeedback({ type: 'error', text: 'Não foi possível definir a senha agora.' }),
-      },
-    );
-  };
-
-  const openRecuperar = () => {
-    resetFeedback();
-    setMode('recuperar');
-    setRecoverStep('solicitar');
-    setDemoCode(null);
-    setRecoveryCode('');
-    setNewPassword('');
-    setConfirmNewPassword('');
-  };
-
-  const handleSolicitarCodigo = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    resetFeedback();
-    iniciarRecuperacao.mutate(
-      { data: { agency: session.agency, account: session.account } },
-      {
-        onSuccess: (data) => {
-          if (data.success) {
-            setDemoCode(data.recoveryCode ?? null);
-            setMaskedPhone(data.maskedPhone ?? null);
-            setRecoverStep('confirmar');
-            setFeedback({ type: 'info', text: data.message });
+            setEntered(true);
           } else {
             setFeedback({ type: 'error', text: data.message });
           }
         },
-        onError: () =>
-          setFeedback({ type: 'error', text: 'Não foi possível iniciar a recuperação.' }),
+        onError: () => {
+          setPassword('');
+          setFeedback({ type: 'error', text: 'Não foi possível validar agora. Tente novamente.' });
+        },
       },
     );
   };
-
-  const handleRedefinir = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    resetFeedback();
-    if (newPassword !== confirmNewPassword) {
-      setFeedback({ type: 'error', text: 'As senhas não conferem.' });
-      return;
-    }
-    redefinir.mutate(
-      {
-        data: {
-          agency: session.agency,
-          account: session.account,
-          recoveryCode,
-          newPassword,
-          confirmNewPassword,
-        },
-      },
-      {
-        onSuccess: (data) => {
-          if (data.success) {
-            setHolderName(data.holderName ?? holderName);
-            setFeedback({ type: 'success', text: data.message });
-            setMode('sucesso');
-          } else {
-            setFeedback({ type: 'error', text: data.message });
-          }
-        },
-        onError: () =>
-          setFeedback({ type: 'error', text: 'Não foi possível redefinir a senha.' }),
-      },
-    );
-  };
-
-  const FeedbackMessage = () =>
-    feedback ? (
-      <p className={`auto-feedback auto-feedback--${feedback.type}`} role="alert" data-testid="senha-feedback">
-        {feedback.text}
-      </p>
-    ) : null;
 
   const summary = (
     <div className="auto-summary">
@@ -618,197 +467,96 @@ function AutoatendimentoPasswordPage() {
     </div>
   );
 
-  const passwordField = (
-    id: string,
-    value: string,
-    onChange: (v: string) => void,
-    label: string,
-    testId: string,
-  ) => (
-    <>
-      <label className="auto-field-label" htmlFor={id}>
-        {label}
-      </label>
-      <div className="auto-password-row">
-        <input
-          id={id}
-          type={showPassword ? 'text' : 'password'}
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="SENHA 8 DÍGITOS"
-          value={value}
-          onChange={(event) => onChange(onlyDigits(event.target.value, 8))}
-          maxLength={8}
-          required
-          data-testid={testId}
-        />
-        <button
-          type="button"
-          className="auto-help-btn"
-          onClick={() => setShowPassword((s) => !s)}
-          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-          data-testid="senha-toggle-visibilidade"
-        >
-          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-      </div>
-    </>
-  );
+  if (entered) {
+    return (
+      <AutoatendimentoShell>
+        <div className="auto-card auto-card-senha auto-success" data-testid="senha-sucesso">
+          <CheckCircle2 size={40} className="auto-success-icon" aria-hidden="true" />
+          <h1>Tudo certo!</h1>
+          {holderName && <p className="auto-success-name">{holderName}</p>}
+          <p className="auto-success-copy">
+            {feedback?.text ?? 'Acesso liberado (ambiente de demonstração).'}
+          </p>
+          <button
+            className="auto-continue"
+            type="button"
+            onClick={() => setLocation('/')}
+            data-testid="senha-sucesso-inicio"
+          >
+            VOLTAR AO INÍCIO
+          </button>
+        </div>
+      </AutoatendimentoShell>
+    );
+  }
 
-  let content: ReactNode = null;
+  return (
+    <AutoatendimentoShell>
+      <form
+        className="auto-card auto-card-senha"
+        onSubmit={handleSubmit}
+        aria-labelledby="auto-password-title"
+        data-testid="senha-form-validar"
+      >
+        <h1 id="auto-password-title">Agência e Conta</h1>
 
-  if (mode === 'loading') {
-    content = (
-      <div className="auto-card auto-card-senha" data-testid="senha-loading">
-        <h1>Agência e Conta</h1>
         {summary}
-        <p className="auto-field-help">Consultando sua conta...</p>
-      </div>
-    );
-  } else if (mode === 'sucesso') {
-    content = (
-      <div className="auto-card auto-card-senha auto-success" data-testid="senha-sucesso">
-        <CheckCircle2 size={40} className="auto-success-icon" aria-hidden="true" />
-        <h1>Tudo certo!</h1>
-        {holderName && <p className="auto-success-name">{holderName}</p>}
-        <p className="auto-success-copy">
-          {feedback?.text ?? 'Acesso liberado (ambiente de demonstração).'}
-        </p>
-        <button
-          className="auto-continue"
-          type="button"
-          onClick={() => setLocation('/')}
-          data-testid="senha-sucesso-inicio"
-        >
-          VOLTAR AO INÍCIO
-        </button>
-      </div>
-    );
-  } else if (mode === 'bloqueada') {
-    content = (
-      <div className="auto-card auto-card-senha" data-testid="senha-bloqueada">
-        <ShieldAlert size={36} className="auto-block-icon" aria-hidden="true" />
-        <h1>Conta bloqueada</h1>
-        {summary}
-        <p className="auto-success-copy">
-          Sua conta de demonstração foi bloqueada por tentativas. Recupere sua senha para desbloquear.
-        </p>
-        <button className="auto-continue" type="button" onClick={openRecuperar} data-testid="senha-bloqueada-recuperar">
-          RECUPERAR SENHA
-        </button>
-        <button className="auto-other-access" type="button" onClick={() => setLocation('/pessoa-fisica')}>
-          Outra conta
-        </button>
-      </div>
-    );
-  } else if (mode === 'validar') {
-    content = (
-      <form className="auto-card auto-card-senha" onSubmit={handleValidar} data-testid="senha-form-validar">
-        <h1>Agência e Conta</h1>
-        {summary}
-        {passwordField('pf-password', password, setPassword, 'Senha de 8 dígitos', 'senha-input-validar')}
-        <FeedbackMessage />
-        <button className="auto-continue" type="submit" disabled={password.length !== 8 || busy} data-testid="senha-entrar">
-          {validar.isPending ? 'VALIDANDO...' : 'ENTRAR'}
-        </button>
-        <button className="auto-other-access" type="button" onClick={openRecuperar} data-testid="senha-esqueci">
-          Esqueci minha senha
-        </button>
-        <button className="auto-other-access" type="button" onClick={() => setLocation('/pessoa-fisica')}>
-          Outra conta
-        </button>
-      </form>
-    );
-  } else if (mode === 'definir') {
-    content = (
-      <form className="auto-card auto-card-senha" onSubmit={handleDefinir} data-testid="senha-form-definir">
-        <h1>Criar senha</h1>
-        {summary}
-        <p className="auto-field-help">Primeiro acesso: crie sua senha de 8 dígitos.</p>
-        {passwordField('pf-new-password', password, setPassword, 'Nova senha', 'senha-input-definir')}
-        {passwordField('pf-confirm-password', confirmPassword, setConfirmPassword, 'Confirmar senha', 'senha-input-definir-confirmar')}
-        <FeedbackMessage />
+
+        <label className="auto-field-label" htmlFor="pf-password">
+          Senha de 8 dígitos
+        </label>
+        <div className="auto-password-row">
+          <input
+            id="pf-password"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="SENHA 8 DÍGITOS"
+            value={password}
+            onChange={(event) => setPassword(event.target.value.replace(/\D/g, '').slice(0, 8))}
+            maxLength={8}
+            required
+            data-testid="senha-input-validar"
+          />
+          <button
+            type="button"
+            className="auto-help-btn"
+            aria-label="Ajuda sobre a senha de 8 dígitos"
+            data-testid="senha-ajuda"
+          >
+            ?
+          </button>
+        </div>
+
+        {feedback && (
+          <p
+            className={`auto-feedback auto-feedback--${feedback.type}`}
+            role="alert"
+            data-testid="senha-feedback"
+          >
+            {feedback.text}
+          </p>
+        )}
+
         <button
           className="auto-continue"
           type="submit"
-          disabled={password.length !== 8 || confirmPassword.length !== 8 || busy}
-          data-testid="senha-definir-btn"
+          disabled={password.length !== 8 || validar.isPending}
+          data-testid="senha-entrar"
         >
-          {definir.isPending ? 'SALVANDO...' : 'DEFINIR SENHA'}
+          {validar.isPending ? 'VALIDANDO...' : 'ENTRAR'}
         </button>
-        <button className="auto-other-access" type="button" onClick={() => setLocation('/pessoa-fisica')}>
+        <button
+          className="auto-other-access"
+          type="button"
+          onClick={() => setLocation('/pessoa-fisica')}
+          data-testid="senha-outra-conta"
+        >
           Outra conta
         </button>
       </form>
-    );
-  } else if (mode === 'recuperar') {
-    content =
-      recoverStep === 'solicitar' ? (
-        <form className="auto-card auto-card-senha" onSubmit={handleSolicitarCodigo} data-testid="senha-form-recuperar">
-          <KeyRound size={32} className="auto-block-icon" aria-hidden="true" />
-          <h1>Recuperar senha</h1>
-          {summary}
-          <p className="auto-field-help">Vamos enviar um código para o telefone cadastrado.</p>
-          <FeedbackMessage />
-          <button className="auto-continue" type="submit" disabled={busy} data-testid="senha-enviar-codigo">
-            {iniciarRecuperacao.isPending ? 'ENVIANDO...' : 'ENVIAR CÓDIGO'}
-          </button>
-          <button
-            className="auto-other-access"
-            type="button"
-            onClick={() => {
-              resetFeedback();
-              setMode(holderName ? 'validar' : 'definir');
-            }}
-          >
-            Voltar
-          </button>
-        </form>
-      ) : (
-        <form className="auto-card auto-card-senha" onSubmit={handleRedefinir} data-testid="senha-form-redefinir">
-          <h1>Redefinir senha</h1>
-          {maskedPhone && (
-            <p className="auto-field-help">Código enviado para {maskedPhone}</p>
-          )}
-          {demoCode && (
-            <div className="auto-demo-code" data-testid="senha-demo-codigo">
-              <span>Código (demonstração)</span>
-              <strong>{demoCode}</strong>
-            </div>
-          )}
-          <label className="auto-field-label" htmlFor="pf-recovery-code">
-            Código de 6 dígitos
-          </label>
-          <input
-            id="pf-recovery-code"
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="000000"
-            value={recoveryCode}
-            onChange={(event) => setRecoveryCode(onlyDigits(event.target.value, 6))}
-            maxLength={6}
-            required
-            data-testid="senha-input-codigo"
-          />
-          {passwordField('pf-reset-password', newPassword, setNewPassword, 'Nova senha', 'senha-input-nova')}
-          {passwordField('pf-reset-confirm', confirmNewPassword, setConfirmNewPassword, 'Confirmar nova senha', 'senha-input-nova-confirmar')}
-          <FeedbackMessage />
-          <button
-            className="auto-continue"
-            type="submit"
-            disabled={recoveryCode.length !== 6 || newPassword.length !== 8 || confirmNewPassword.length !== 8 || busy}
-            data-testid="senha-redefinir-btn"
-          >
-            {redefinir.isPending ? 'REDEFININDO...' : 'REDEFINIR'}
-          </button>
-          <button className="auto-other-access" type="button" onClick={() => setRecoverStep('solicitar')}>
-            Voltar
-          </button>
-        </form>
-      );
-  }
-
-  return <AutoatendimentoShell loading={consultar.isPending && mode === 'loading'}>{content}</AutoatendimentoShell>;
+    </AutoatendimentoShell>
+  );
 }
 
 function PjLoadingOverlay() {
