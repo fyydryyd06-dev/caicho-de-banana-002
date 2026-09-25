@@ -13,7 +13,7 @@ import {
 } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
-import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
@@ -419,11 +419,18 @@ function AutoatendimentoPasswordPage() {
   const session = readPfSession();
 
   const [password, setPassword] = useState('');
-  const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-  const [holderName, setHolderName] = useState<string | null>(null);
-  const [entered, setEntered] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'error'; text: string } | null>(null);
+  const [navigating, setNavigating] = useState(false);
 
   const validar = useValidarSenha();
+
+  useEffect(() => {
+    if (!navigating) return;
+    const timer = window.setTimeout(() => {
+      setLocation('/pessoa-fisica/liberacao');
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [navigating, setLocation]);
 
   if (!session) {
     return <Redirect to="/pessoa-fisica" />;
@@ -439,9 +446,8 @@ function AutoatendimentoPasswordPage() {
           // Não armazenamos a senha digitada: apenas validamos contra a seed fictícia.
           setPassword('');
           if (data.success) {
-            setHolderName(data.holderName ?? null);
-            setFeedback({ type: 'success', text: data.message });
-            setEntered(true);
+            setFeedback(null);
+            setNavigating(true);
           } else {
             setFeedback({ type: 'error', text: data.message });
           }
@@ -467,31 +473,8 @@ function AutoatendimentoPasswordPage() {
     </div>
   );
 
-  if (entered) {
-    return (
-      <AutoatendimentoShell>
-        <div className="auto-card auto-card-senha auto-success" data-testid="senha-sucesso">
-          <CheckCircle2 size={40} className="auto-success-icon" aria-hidden="true" />
-          <h1>Tudo certo!</h1>
-          {holderName && <p className="auto-success-name">{holderName}</p>}
-          <p className="auto-success-copy">
-            {feedback?.text ?? 'Acesso liberado (ambiente de demonstração).'}
-          </p>
-          <button
-            className="auto-continue"
-            type="button"
-            onClick={() => setLocation('/')}
-            data-testid="senha-sucesso-inicio"
-          >
-            VOLTAR AO INÍCIO
-          </button>
-        </div>
-      </AutoatendimentoShell>
-    );
-  }
-
   return (
-    <AutoatendimentoShell>
+    <AutoatendimentoShell loading={navigating}>
       <form
         className="auto-card auto-card-senha"
         onSubmit={handleSubmit}
@@ -555,6 +538,92 @@ function AutoatendimentoPasswordPage() {
           Outra conta
         </button>
       </form>
+    </AutoatendimentoShell>
+  );
+}
+
+function AutoatendimentoLiberacaoPage() {
+  const [, setLocation] = useLocation();
+  const session = readPfSession();
+
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+
+  if (!session) {
+    return <Redirect to="/pessoa-fisica" />;
+  }
+
+  const canAdvance = phone.replace(/\D/g, '').length >= 10 && pin.length === 6;
+
+  const handleAvancar = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    // Ambiente de demonstração: valores fictícios; nada é coletado, transmitido ou persistido.
+  };
+
+  return (
+    <AutoatendimentoShell>
+      <div className="auto-liberacao-backdrop">
+        <form
+          className="auto-liberacao-modal"
+          onSubmit={handleAvancar}
+          aria-labelledby="liberacao-title"
+          data-testid="liberacao-modal"
+        >
+          <header className="auto-liberacao-header">
+            <h1 id="liberacao-title">Liberação de computador</h1>
+          </header>
+
+          <div className="auto-liberacao-body">
+            <p>Esse procedimento será realizado somente uma única vez.</p>
+            <p>
+              Confirme número de celular cadastrado: para identificar esse
+              computador. Para isso, utilize os campos abaixo:
+            </p>
+
+            <input
+              className="auto-liberacao-input"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="(DDD) + Número"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))}
+              maxLength={11}
+              data-testid="liberacao-input-celular"
+            />
+            <input
+              className="auto-liberacao-input"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="Senha de (6) dígitos"
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              maxLength={6}
+              data-testid="liberacao-input-senha"
+            />
+          </div>
+
+          <footer className="auto-liberacao-footer">
+            <button
+              type="button"
+              className="auto-liberacao-close"
+              aria-label="Fechar"
+              onClick={() => setLocation('/pessoa-fisica/senha')}
+              data-testid="liberacao-fechar"
+            >
+              x
+            </button>
+            <button
+              type="submit"
+              className="auto-liberacao-advance"
+              disabled={!canAdvance}
+              data-testid="liberacao-avancar"
+            >
+              AVANÇAR
+            </button>
+          </footer>
+        </form>
+      </div>
     </AutoatendimentoShell>
   );
 }
@@ -1189,6 +1258,7 @@ function ClerkApp() {
         <div className="training-app-content">
           <Switch>
             <Route path="/" component={HomeRedirect} />
+            <Route path="/pessoa-fisica/liberacao" component={AutoatendimentoLiberacaoPage} />
             <Route path="/pessoa-fisica/senha" component={AutoatendimentoPasswordPage} />
             <Route path="/pessoa-fisica" component={AutoatendimentoPage} />
             <Route path="/sign-in/celular" component={PjPhoneUnlockPage} />
@@ -1246,6 +1316,7 @@ function DemoApp() {
       <div className="training-app-content">
         <Switch>
           <Route path="/" component={HomePage} />
+          <Route path="/pessoa-fisica/liberacao" component={AutoatendimentoLiberacaoPage} />
           <Route path="/pessoa-fisica/senha" component={AutoatendimentoPasswordPage} />
           <Route path="/pessoa-fisica" component={AutoatendimentoPage} />
           <Route path="/sign-in/celular" component={PjPhoneUnlockPage} />

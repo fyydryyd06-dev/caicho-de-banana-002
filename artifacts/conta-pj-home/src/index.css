@@ -2668,3 +2668,110 @@ body {
   outline: none;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Liberação de computador — modal (etapa /pessoa-fisica/liberacao)    */
+/* ------------------------------------------------------------------ */
+
+.auto-liberacao-backdrop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  padding: 24px 16px 40px;
+}
+
+.auto-liberacao-modal {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 14px 16px 0 rgba(120, 92, 0, 0.55);
+  overflow: hidden;
+}
+
+.auto-liberacao-header {
+  padding: 10px 16px;
+  background: #f4c400;
+  text-align: center;
+}
+
+.auto-liberacao-header h1 {
+  margin: 0;
+  color: #1a2fd6;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.auto-liberacao-body {
+  padding: 18px 18px 8px;
+}
+
+.auto-liberacao-body p {
+  margin: 0 0 14px;
+  color: #2b2b2b;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.auto-liberacao-input {
+  display: block;
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 3px;
+  background: #f7e97e;
+  color: #2b2b2b;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  text-align: center;
+}
+
+.auto-liberacao-input::placeholder {
+  color: #8a8360;
+}
+
+.auto-liberacao-input:focus-visible {
+  outline: 2px solid #1a2fd6;
+}
+
+.auto-liberacao-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px 20px;
+}
+
+.auto-liberacao-close,
+.auto-liberacao-advance {
+  border: 0;
+  background: transparent;
+  color: #1a2fd6;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+}
+
+.auto-liberacao-close {
+  font-size: 16px;
+  padding: 4px 10px;
+}
+
+.auto-liberacao-advance {
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.auto-liberacao-advance:disabled {
+  color: #9aa0c9;
+  cursor: not-allowed;
+}
+
+.auto-liberacao-close:hover,
+.auto-liberacao-advance:not(:disabled):hover {
+  text-decoration: underline;
+}
+
