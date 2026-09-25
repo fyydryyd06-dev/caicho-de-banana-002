@@ -16,9 +16,6 @@ import { shadcn } from '@clerk/themes';
 import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import {
-  useValidarSenha,
-} from '@workspace/api-client-react';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const clerkPubKey = publishableKeyFromHost(
@@ -419,10 +416,7 @@ function AutoatendimentoPasswordPage() {
   const session = readPfSession();
 
   const [password, setPassword] = useState('');
-  const [feedback, setFeedback] = useState<{ type: 'error'; text: string } | null>(null);
   const [navigating, setNavigating] = useState(false);
-
-  const validar = useValidarSenha();
 
   useEffect(() => {
     if (!navigating) return;
@@ -438,26 +432,10 @@ function AutoatendimentoPasswordPage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setFeedback(null);
-    validar.mutate(
-      { data: { agency: session.agency, account: session.account, password } },
-      {
-        onSuccess: (data) => {
-          // Não armazenamos a senha digitada: apenas validamos contra a seed fictícia.
-          setPassword('');
-          if (data.success) {
-            setFeedback(null);
-            setNavigating(true);
-          } else {
-            setFeedback({ type: 'error', text: data.message });
-          }
-        },
-        onError: () => {
-          setPassword('');
-          setFeedback({ type: 'error', text: 'Não foi possível validar agora. Tente novamente.' });
-        },
-      },
-    );
+    // Ambiente de demonstração: aceita qualquer senha fictícia de 8 dígitos.
+    // A senha digitada não é coletada, transmitida nem persistida.
+    setPassword('');
+    setNavigating(true);
   };
 
   const summary = (
@@ -511,23 +489,13 @@ function AutoatendimentoPasswordPage() {
           </button>
         </div>
 
-        {feedback && (
-          <p
-            className={`auto-feedback auto-feedback--${feedback.type}`}
-            role="alert"
-            data-testid="senha-feedback"
-          >
-            {feedback.text}
-          </p>
-        )}
-
         <button
           className="auto-continue"
           type="submit"
-          disabled={password.length !== 8 || validar.isPending}
+          disabled={password.length !== 8 || navigating}
           data-testid="senha-entrar"
         >
-          {validar.isPending ? 'VALIDANDO...' : 'ENTRAR'}
+          ENTRAR
         </button>
         <button
           className="auto-other-access"
