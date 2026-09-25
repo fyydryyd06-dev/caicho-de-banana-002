@@ -1,0 +1,22 @@
+{
+  "summary": "Testado end-to-end o fluxo da rota de SENHA PF (Caicho de Banana). 11/11 testes backend passaram (pytest) cobrindo /api/pf/senha/consultar, /validar (senha correta, 3 tentativas erradas → bloqueio, Zod 400), /definir (primeiro acesso + tentativa duplicada + Zod 400), /recuperar e /redefinir (codigo correto/errado). Todos os fluxos frontend testados via Playwright: home (demo-ribbon + iframe reference-page), VALIDAR (feedback erro + sucesso), DEFINIR (primeiro acesso), RECUPERAR/REDEFINIR (codigo demo exibido e redefinicao com sucesso), e BLOQUEADA (com botao recuperar). Todos passaram.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_pf_senha.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OpenAPI/handler de /pf/senha/redefinir usa os campos newPassword/confirmNewPassword enquanto /definir usa password/confirmPassword — considerar padronizar nomes para reduzir confusao no cliente.",
+    "recoveryCode e exposto no response de /pf/senha/recuperar; adequado para demo mas garantir que seja removido caso o ambiente vire producao (feature flag por VITE_DEMO / NODE_ENV)."
+  ],
+  "updated_files": ["/app/backend/tests/test_pf_senha.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Ver /app/memory/test_credentials.md — 00019/987654 senha 12345678 (validar, cod recuperacao 246810); 12345/123456 primeiro acesso; 45006/112233 bloqueada.",
+  "seed_data_creation": "Utilizado pnpm --filter @workspace/db run seed antes/depois dos testes para garantir estado limpo.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Express roda via proxy FastAPI (supervisor 'backend'). Frontend Vite via supervisor 'frontend'. Sempre rodar seed entre execucoes pois os fluxos sao stateful (definir consome conta 12345/123456, redefinir troca senha de 00019/987654, validar errado incrementa tentativas). Redefinir espera payload {recoveryCode, newPassword, confirmNewPassword} — divergente de /definir.",
+  "rca of the issue": "N/A — nenhum bug encontrado."
+}
