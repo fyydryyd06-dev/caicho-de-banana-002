@@ -1819,6 +1819,19 @@ body {
   background-size: auto;
 }
 
+/* Aumenta ~17% apenas o conteúdo do formulário à esquerda (/sign-in/celular),
+   preservando proporções, alinhamento e posição. Não afeta a coluna direita. */
+.token-left-inner {
+  transform: scale(1.17);
+  transform-origin: left center;
+}
+
+@media (max-width: 868px) {
+  .token-left-inner {
+    transform: none;
+  }
+}
+
 .token-header {
   display: flex;
   align-items: center;
