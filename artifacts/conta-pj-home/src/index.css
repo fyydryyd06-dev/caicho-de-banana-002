@@ -2723,8 +2723,9 @@ body {
 
 .auto-liberacao-input {
   display: block;
+  box-sizing: border-box;
   width: 100%;
-  margin: 9px auto 0;
+  margin: 9px 0 0;
   padding: 8px 10px;
   border: 0;
   border-radius: 3px;
