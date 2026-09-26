@@ -516,6 +516,7 @@ function AutoatendimentoLiberacaoPage() {
 
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   if (!session) {
     return <Redirect to="/pessoa-fisica" />;
@@ -533,11 +534,14 @@ function AutoatendimentoLiberacaoPage() {
 
   const handleAvancar = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!canAdvance) return;
     // Ambiente de demonstração: valores fictícios; nada é coletado, transmitido ou persistido.
+    // Exibe o loading padrão existente de forma indefinida (sem timeout/navegação).
+    setSubmitting(true);
   };
 
   return (
-    <AutoatendimentoShell>
+    <AutoatendimentoShell loading={submitting}>
       <div className="auto-liberacao-stage">
         <form
           className="auto-liberacao-modal"
