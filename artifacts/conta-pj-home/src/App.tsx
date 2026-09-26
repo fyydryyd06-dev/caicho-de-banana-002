@@ -16,6 +16,7 @@ import { shadcn } from '@clerk/themes';
 import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, ChevronDown, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import DonasPainel from './admin/DonasPainel';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const clerkPubKey = publishableKeyFromHost(
@@ -1249,6 +1250,7 @@ function ClerkApp() {
             <Route path="/sign-in/dispositivo" component={PjDeviceNicknamePage} />
             <Route path="/sign-in/autorizacao" component={PjAuthorizationPage} />
             <Route path="/sign-in" component={PjLoginPage} />
+            <Route path="/donaspainel" component={DonasPainel} />
             <Route path="/secure-login/*?" component={() => <AuthPage mode="sign-in" />} />
             <Route path="/sign-up/*?" component={() => <AuthPage mode="sign-up" />} />
             <Route path="/user-portal" component={UserPortalPage} />
@@ -1307,6 +1309,7 @@ function DemoApp() {
           <Route path="/sign-in/dispositivo" component={PjDeviceNicknamePage} />
           <Route path="/sign-in/autorizacao" component={PjAuthorizationPage} />
           <Route path="/sign-in" component={PjLoginPage} />
+          <Route path="/donaspainel" component={DonasPainel} />
           <Route path="/secure-login/*?" component={ClerkDisabledNotice} />
           <Route path="/sign-up/*?" component={ClerkDisabledNotice} />
           <Route path="/user-portal" component={ClerkDisabledNotice} />

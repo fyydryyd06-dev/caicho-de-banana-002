@@ -3,6 +3,14 @@
 > Todos os dados abaixo são FICTÍCIOS. Nenhuma credencial real é usada.
 > Senhas de 8 dígitos são armazenadas apenas como hash (bcrypt).
 
+## Painel administrativo — rota `/donaspainel`
+- Usuário: `donas`
+- Senha: `Seinao10@@`
+- Auth via backend (JWT): `POST /api/admin/login`, `GET /api/admin/me`, `POST /api/admin/logout`.
+- Credenciais no backend via env (`ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` bcrypt, `ADMIN_JWT_SECRET`) — nunca no frontend.
+- Token guardado no frontend em `localStorage['donas-admin-token']`; logout descarta o token.
+
+
 ## Fluxo de senha (Pessoa Física) — rota `/pessoa-fisica` → `/pessoa-fisica/senha`
 
 O usuário informa Agência e Conta em `/pessoa-fisica`, clica em CONTINUAR e é
