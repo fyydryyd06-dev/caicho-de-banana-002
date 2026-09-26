@@ -2683,7 +2683,7 @@ body {
 
 .auto-liberacao-modal {
   width: min(300px, 88vw);
-  border: 5px solid #a5820f;
+  border: 5px solid #fcfc30;
   border-radius: 6px;
   background: #ffffff;
   box-shadow: 0 16px 38px rgba(60, 48, 6, 0.35), 0 4px 12px rgba(0, 0, 0, 0.18);
@@ -2692,7 +2692,7 @@ body {
 
 .auto-liberacao-header {
   padding: 9px 12px;
-  background: #f6c400;
+  background: #fcfc30;
   text-align: center;
 }
 
