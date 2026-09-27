@@ -1,0 +1,25 @@
+{
+  "summary": "Testing completo da nova página 'Tentativas de login' (backend + frontend + segurança). Backend pytest 18/18 passando: novos endpoints /api/auth-attempt (POST público retorna {ok:true}) e /api/auth-attempt/list (401 sem token, 200 com Bearer admin, retorna id/route/status/ip/browser/createdAt); confirmação de que campo 'password'/'pin' enviado no payload é IGNORADO e não aparece em list; variantes de status (submitted/invalid/blocked) persistem. Frontend público: /pessoa-fisica -> /pessoa-fisica/senha gerou 2 POST /api/auth-attempt com route/login/status/language/timezone/screen/userAgent — NENHUM contém campo password/pin nem a string '12345678' (SEGURANÇA OK). Admin /donaspainel: login donas/Seinao10@@, menu 'Tentativas de login' (donas-menu-tentativas) abre tentativas-view; 9 tentativas-row iniciais; auto-refresh 5s validado (injeção via curl aparece sem reload); tentativas-search filtra corretamente (1 linha após filtrar por login único); clique em linha abre access-detail-modal com Status, Login/Identificador, Rota, IP, User-Agent, Tela, Idioma, Fuso, Referrer; fecha em access-detail-close. Regressão: Dashboard (dash-view) e Acessos (acessos-view com 32 linhas, acessos-search, acessos-export) continuam funcionais.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_auth_attempts.py",
+    "/app/backend/tests/test_caicho_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend authAttempts.ts corretamente usa allowlist via helper str() em vez de spread do body, garantindo que password/pin nunca sejam persistidos — bom.",
+    "trackLoginAttempt em App.tsx envia apenas metadados não-secretos (route/login não-secreto/status). Validado em runtime que a senha (8 dígitos) nunca aparece no payload.",
+    "TentativasView faz polling a cada 5s sem AbortController; requisições em voo podem se sobrepor em redes lentas — aceitável para MVP.",
+    "GET /auth-attempt/list retorna até 500 registros sem paginação; ok para volume atual, futuro precisará paginar/filtrar server-side.",
+    "Modal AccessDetailModal reusa cópia entre Acessos e Tentativas; poderia haver campo distinto (ex: 'Tentativa' vs 'Acesso') no título, mas funcional."
+  ],
+  "updated_files": ["/app/backend/tests/test_auth_attempts.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100%"},
+  "test_credentials": "Admin donas/Seinao10@@",
+  "seed_data_creation": "Inseridas tentativas TEST_pf, TEST_pf_senha, TEST_list_at, TEST_status (submitted/invalid/blocked) e TEST_AUTOREFRESH via /api/auth-attempt.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Testids: donas-menu-tentativas, tentativas-view, tentativas-row, tentativas-search, access-detail-modal, access-detail-close. Endpoints: POST /api/auth-attempt (público, sem senha), GET /api/auth-attempt/list (Bearer admin). Payload atual do trackLoginAttempt inclui route/login/status/language/timezone/screen/referrer/userAgent — NUNCA password. Preview: https://pf-senha-flow.preview.emergentagent.com."
+}
