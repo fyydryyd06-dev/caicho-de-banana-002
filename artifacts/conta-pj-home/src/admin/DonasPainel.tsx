@@ -151,8 +151,203 @@ const MENU = [
   { key: 'config', label: 'Configurações', icon: Settings },
 ] as const;
 
+const authHeaders = (): Record<string, string> => {
+  const t = localStorage.getItem(TOKEN_KEY);
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
+
+interface AccessItem {
+  id: string;
+  route: string;
+  ip: string | null;
+  browser: string | null;
+  deviceType: string | null;
+  os: string | null;
+  language: string | null;
+  timezone: string | null;
+  screen: string | null;
+  referrer: string | null;
+  userAgent: string | null;
+  location: string | null;
+  createdAt: string;
+}
+interface Stats {
+  total: number;
+  today: number;
+  lastHour: number;
+  last7days: number;
+  byHour: { hour: string; count: number }[];
+  topRoutes: { route: string; count: number }[];
+  recent: AccessItem[];
+}
+
+const timeAgo = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'agora';
+  if (m < 60) return `${m} min atrás`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h atrás`;
+  return `${Math.floor(h / 24)}d atrás`;
+};
+
+function AccessDetailModal({ item, onClose }: { item: AccessItem; onClose: () => void }) {
+  return (
+    <div className="donas-modal-backdrop" onClick={onClose} data-testid="access-detail-modal">
+      <div className="donas-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="donas-modal-head">
+          <h3>● Detalhes do acesso</h3>
+          <button type="button" onClick={onClose} aria-label="Fechar" data-testid="access-detail-close">×</button>
+        </div>
+        <dl className="donas-modal-body">
+          <div><dt>Rota</dt><dd>{item.route}</dd></div>
+          <div><dt>Quando</dt><dd>{new Date(item.createdAt).toLocaleString('pt-BR')}</dd></div>
+          <div><dt>IP</dt><dd>{item.ip ?? '-'}</dd></div>
+          <div><dt>Local (aprox.)</dt><dd>{item.location ?? '-'}</dd></div>
+          <div><dt>Navegador</dt><dd>{item.browser ?? '-'}</dd></div>
+          <div><dt>Dispositivo</dt><dd>{item.deviceType ?? '-'}</dd></div>
+          <div><dt>Sistema</dt><dd>{item.os ?? '-'}</dd></div>
+          <div><dt>User-Agent</dt><dd className="donas-ua">{item.userAgent ?? '-'}</dd></div>
+          <div><dt>Tela</dt><dd>{item.screen ?? '-'}</dd></div>
+          <div><dt>Idioma</dt><dd>{item.language ?? '-'}</dd></div>
+          <div><dt>Fuso</dt><dd>{item.timezone ?? '-'}</dd></div>
+          <div><dt>Referrer</dt><dd>{item.referrer || '(direto)'}</dd></div>
+        </dl>
+        <div className="donas-modal-foot">
+          <button type="button" className="donas-mini-btn" onClick={() => navigator.clipboard?.writeText(JSON.stringify(item, null, 2))}>Copiar JSON</button>
+          <button type="button" className="donas-submit donas-submit--sm" onClick={onClose}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardView({ onOpen }: { onOpen: (a: AccessItem) => void }) {
+  const [stats, setStats] = useState<Stats | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch('/api/access/stats', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d) setStats(d); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  const max = Math.max(1, ...(stats?.byHour.map((b) => b.count) ?? [1]));
+  const topMax = Math.max(1, ...(stats?.topRoutes.map((t) => t.count) ?? [1]));
+  return (
+    <div className="donas-dash" data-testid="dash-view">
+      <div className="donas-cards">
+        {[
+          { l: 'TOTAL DE ACESSOS', v: stats?.total, s: 'All-time' },
+          { l: 'HOJE', v: stats?.today, s: 'Ao vivo' },
+          { l: 'ÚLTIMA HORA', v: stats?.lastHour, s: '60 min' },
+          { l: 'ÚLTIMOS 7 DIAS', v: stats?.last7days, s: 'Semana' },
+        ].map((c) => (
+          <div className="donas-card-stat" key={c.l}>
+            <span className="donas-card-label">{c.l}</span>
+            <strong data-testid={`stat-${c.l}`}>{c.v ?? '—'}</strong>
+            <small>{c.s}</small>
+          </div>
+        ))}
+      </div>
+      <div className="donas-panels">
+        <div className="donas-block">
+          <h3>Tráfego nas últimas 24h</h3>
+          <div className="donas-bars">
+            {(stats?.byHour ?? []).map((b, i) => (
+              <div className="donas-bar-col" key={i} title={`${b.hour}: ${b.count}`}>
+                <div className="donas-bar" style={{ height: `${(b.count / max) * 100}%` }} />
+                <span>{b.hour}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="donas-block">
+          <h3>Páginas mais acessadas</h3>
+          <ul className="donas-top">
+            {(stats?.topRoutes ?? []).map((t) => (
+              <li key={t.route}>
+                <span className="donas-top-route">{t.route}</span>
+                <span className="donas-top-bar"><i style={{ width: `${(t.count / topMax) * 100}%` }} /></span>
+                <span className="donas-top-count">{t.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="donas-block">
+        <h3>Acessos recentes <small>clique para ver detalhes</small></h3>
+        <ul className="donas-recent">
+          {(stats?.recent ?? []).map((a) => (
+            <li key={a.id} onClick={() => onOpen(a)} data-testid="recent-row">
+              <span className="donas-recent-route">{a.route}</span>
+              <span className="donas-recent-meta">{a.browser} · {a.ip} · {timeAgo(a.createdAt)}</span>
+              <span className="donas-tag">{a.location}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function AcessosView({ onOpen }: { onOpen: (a: AccessItem) => void }) {
+  const [items, setItems] = useState<AccessItem[]>([]);
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(`/api/access/list?q=${encodeURIComponent(q)}`, { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d) setItems(d.items); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, [q]);
+  const exportCsv = async () => {
+    const r = await fetch('/api/access/export', { headers: authHeaders() });
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'acessos.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="donas-acessos" data-testid="acessos-view">
+      <div className="donas-toolbar">
+        <input
+          className="donas-search"
+          placeholder="Buscar IP, rota, navegador…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          data-testid="acessos-search"
+        />
+        <button type="button" className="donas-mini-btn" onClick={exportCsv} data-testid="acessos-export">Exportar CSV</button>
+      </div>
+      <div className="donas-table-wrap">
+        <table className="donas-table">
+          <thead>
+            <tr><th>#</th><th>Rota</th><th>IP</th><th>Navegador</th><th>Dispositivo</th><th>Idioma</th><th>Fuso</th><th>Quando</th></tr>
+          </thead>
+          <tbody>
+            {items.map((a, i) => (
+              <tr key={a.id} onClick={() => onOpen(a)} data-testid="acessos-row">
+                <td>{i + 1}</td><td>{a.route}</td><td>{a.ip}</td><td>{a.browser}</td>
+                <td>{a.deviceType}</td><td>{a.language}</td><td>{a.timezone}</td><td>{timeAgo(a.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function DonasDashboard({ username, onLogout }: { username: string; onLogout: () => void }) {
   const [active, setActive] = useState<(typeof MENU)[number]['key']>('dashboard');
+  const [detail, setDetail] = useState<AccessItem | null>(null);
   const current = MENU.find((m) => m.key === active) ?? MENU[0];
 
   return (
@@ -191,19 +386,22 @@ function DonasDashboard({ username, onLogout }: { username: string; onLogout: ()
       <main className="donas-main">
         <header className="donas-topbar">
           <h1>{current.label}</h1>
-          <span className="donas-user">
-            <User size={15} />
-            {username}
-          </span>
+          <span className="donas-live">● Ao vivo · atualizando a cada 5s</span>
+          <span className="donas-user"><User size={15} />{username}</span>
         </header>
         <section className="donas-content">
-          <div className="donas-empty">
-            <current.icon size={30} />
-            <h2>{current.label}</h2>
-            <p>Estrutura inicial. Os dados desta seção serão implementados nas próximas etapas.</p>
-          </div>
+          {active === 'dashboard' && <DashboardView onOpen={setDetail} />}
+          {active === 'acessos' && <AcessosView onOpen={setDetail} />}
+          {active !== 'dashboard' && active !== 'acessos' && (
+            <div className="donas-empty">
+              <current.icon size={30} />
+              <h2>{current.label}</h2>
+              <p>Estrutura inicial. Esta seção será implementada nas próximas etapas.</p>
+            </div>
+          )}
         </section>
       </main>
+      {detail && <AccessDetailModal item={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

@@ -3218,3 +3218,67 @@ body {
   }
 }
 
+
+/* Dashboard/Acessos data views */
+.donas-live { color: #4ade80; font-size: 12px; font-weight: 600; }
+.donas-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.donas-card-stat {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 18px 20px; border-radius: 14px;
+  background: rgba(20, 24, 40, 0.7); border: 1px solid rgba(120,130,190,0.16);
+}
+.donas-card-label { color: #8890b5; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+.donas-card-stat strong { color: #f4f5ff; font-size: 34px; font-weight: 800; }
+.donas-card-stat small { color: #6b7290; font-size: 11px; }
+.donas-panels { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-top: 16px; }
+.donas-block {
+  margin-top: 16px; padding: 18px 20px; border-radius: 14px;
+  background: rgba(20,24,40,0.7); border: 1px solid rgba(120,130,190,0.16);
+}
+.donas-panels .donas-block { margin-top: 0; }
+.donas-block h3 { margin: 0 0 14px; color: #e7e9f7; font-size: 15px; font-weight: 700; }
+.donas-block h3 small { color: #6b7290; font-size: 11px; font-weight: 400; float: right; }
+.donas-bars { display: flex; align-items: flex-end; gap: 3px; height: 180px; }
+.donas-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.donas-bar { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #7c5cff, #4aa8ff); }
+.donas-bar-col span { color: #5a6088; font-size: 8px; }
+.donas-top { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.donas-top li { display: grid; grid-template-columns: 1fr 2fr auto; align-items: center; gap: 10px; }
+.donas-top-route { color: #cdd2ee; font-size: 12px; }
+.donas-top-bar { height: 8px; border-radius: 6px; background: rgba(120,130,190,0.14); overflow: hidden; }
+.donas-top-bar i { display: block; height: 100%; background: linear-gradient(90deg,#7c5cff,#4aa8ff); }
+.donas-top-count { color: #f4f5ff; font-weight: 700; font-size: 13px; }
+.donas-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.donas-recent li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: rgba(15,18,32,0.6); cursor: pointer; }
+.donas-recent li:hover { background: rgba(124,92,255,0.12); }
+.donas-recent-route { color: #e7e9f7; font-weight: 700; font-size: 13px; }
+.donas-recent-meta { color: #8890b5; font-size: 12px; flex: 1; }
+.donas-tag { padding: 3px 10px; border-radius: 999px; background: rgba(124,92,255,0.18); color: #cbbcff; font-size: 11px; }
+.donas-toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
+.donas-search { flex: 1; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(120,130,190,0.28); background: #0f1220; color: #e7e9f7; font-size: 14px; }
+.donas-search:focus-visible { outline: none; border-color: #7c5cff; }
+.donas-mini-btn { padding: 0 16px; height: 42px; border-radius: 10px; border: 1px solid rgba(120,130,190,0.28); background: transparent; color: #cdd2ee; font-weight: 600; cursor: pointer; }
+.donas-mini-btn:hover { background: rgba(124,92,255,0.14); }
+.donas-table-wrap { overflow: auto; border-radius: 12px; border: 1px solid rgba(120,130,190,0.16); }
+.donas-table { width: 100%; border-collapse: collapse; }
+.donas-table th { text-align: left; padding: 12px 14px; color: #8890b5; font-size: 11px; letter-spacing: 0.06em; background: rgba(15,18,32,0.8); }
+.donas-table td { padding: 12px 14px; color: #cdd2ee; font-size: 12.5px; border-top: 1px solid rgba(120,130,190,0.1); }
+.donas-table tbody tr { cursor: pointer; }
+.donas-table tbody tr:hover { background: rgba(124,92,255,0.1); }
+.donas-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(5,7,14,0.7); padding: 20px; }
+.donas-modal { width: 100%; max-width: 560px; border-radius: 16px; background: #10131f; border: 1px solid rgba(120,130,190,0.2); box-shadow: 0 30px 70px rgba(0,0,0,0.5); }
+.donas-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid rgba(120,130,190,0.14); }
+.donas-modal-head h3 { margin: 0; color: #4aa8ff; font-size: 17px; }
+.donas-modal-head button { border: 0; background: transparent; color: #8890b5; font-size: 22px; cursor: pointer; }
+.donas-modal-body { margin: 0; padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+.donas-modal-body > div { display: grid; grid-template-columns: 130px 1fr; gap: 12px; }
+.donas-modal-body dt { color: #8890b5; font-size: 12.5px; }
+.donas-modal-body dd { margin: 0; color: #e7e9f7; font-size: 12.5px; word-break: break-word; }
+.donas-modal-body .donas-ua { font-family: monospace; font-size: 11px; color: #aab0d0; }
+.donas-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px 20px; }
+.donas-submit--sm { width: auto; height: 40px; padding: 0 22px; }
+@media (max-width: 900px) {
+  .donas-cards { grid-template-columns: repeat(2, 1fr); }
+  .donas-panels { grid-template-columns: 1fr; }
+}
+

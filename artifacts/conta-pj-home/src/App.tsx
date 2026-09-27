@@ -1322,9 +1322,34 @@ function DemoApp() {
 
 const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 
+function AccessTracker() {
+  const [location] = useLocation();
+  useEffect(() => {
+    if (location.startsWith('/donaspainel')) return;
+    try {
+      fetch('/api/access/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          route: location || '/',
+          language: navigator.language,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          screen: `${window.screen.width}x${window.screen.height}`,
+          referrer: document.referrer,
+          userAgent: navigator.userAgent,
+        }),
+      }).catch(() => {});
+    } catch {
+      /* ignore */
+    }
+  }, [location]);
+  return null;
+}
+
 function App() {
   return (
     <WouterRouter base={basePath}>
+      <AccessTracker />
       {clerkEnabled ? <ClerkApp /> : <DemoApp />}
     </WouterRouter>
   );
