@@ -2839,6 +2839,8 @@ body {
 /* Modal compacto, porém um pouco maior (classes exclusivas desta página) */
 .auto-liberacao-stage .auto-liberacao-modal {
   width: min(320px, 90vw);
+  transform: scale(0.8);
+  transform-origin: center center;
 }
 .auto-liberacao-stage .auto-liberacao-header {
   padding: 8px 12px;
