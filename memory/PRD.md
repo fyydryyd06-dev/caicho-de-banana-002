@@ -46,3 +46,12 @@ Reset: `pnpm --filter @workspace/db run seed`
 - P2: Persistir "sessão" pós-login demo (tela pós-acesso PF em vez de apenas card de sucesso).
 - P2: Conectar o fluxo PJ ("Esqueci minha senha") a um fluxo demo próprio.
 - P2: Testes automatizados no CI do monorepo (typecheck + build + smoke da API).
+
+## Painel administrativo /donaspainel (2026-06)
+- Auth admin JWT (Express): /api/admin/{login,me,logout}; credenciais via env (bcrypt hash), token no localStorage; logout.
+- Monitoramento REAL de acessos: tabela Postgres `accesses`; tracker no frontend em TODAS as rotas públicas (POST /api/access/track), incluindo mudanças de rota (wouter), exceto /donaspainel.
+- Endpoints admin: /api/access/stats (total/hoje/última hora/7 dias, gráfico 24h, top rotas, recentes), /api/access/list (busca), /api/access/export (CSV).
+- Painel: Dashboard e Acessos com auto-refresh 5s, modal "Detalhes do acesso", busca e export CSV. Layout escuro preservado.
+- Localização apenas aproximada por rede (Internet/Local); sem GPS.
+- Testado: iteration_4.json (backend 13/13, frontend 100%).
+- Backlog: seções Tentativas de login e Visitantes/Sessões e Configurações (Telegram) ainda são placeholders; paginação real em list/export.

@@ -1,0 +1,19 @@
+{
+  "summary": "Testing completo do monitoramento REAL de acessos (backend + frontend). Backend pytest 13/13 passing (health, admin auth, PF senha, e novos endpoints: POST /api/access/track {ok:true}; GET stats/list/export 401 sem token e 200 com Bearer admin; stats retorna total/today/lastHour/last7days/byHour[24]/topRoutes/recent; list filtra por q; export retorna text/csv). Frontend: tracker dispara em /,/pessoa-fisica,/sign-in,/sign-in/celular (4/4 POSTs) e NÃO dispara em /donaspainel (0). DonasPainel: login donas/Seinao10@@, cards Total/Hoje/Última hora/7 dias todos >0 com números reais, gráfico 24h, Páginas mais acessadas, recent-row (14) clicáveis abrindo access-detail-modal com Rota, IP, navegador, user-agent, Tela, Idioma, Fuso, Referrer; close funciona. Menu Acessos: acessos-row (14), acessos-search filtra (TEST_ -> 7), acessos-export presente; clique em acessos-row abre modal. Logout retorna à donas-login. Regressão PF login/senha ok em iterações anteriores.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_caicho_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "stat cards usam data-testid dinâmico com acentos e espaços (ex.: 'stat-ÚLTIMA HORA'). Funciona mas dificulta seleção; considerar chaves estáveis (stat-total, stat-today, stat-hour, stat-week).",
+    "AccessTracker envia track a cada mudança de rota; sem debounce nem dedupe. StrictMode/refresh podem gerar duplicatas — aceitável para MVP.",
+    "GET /api/access/list retorna até 500 e /export até 5000 sem paginação real; ok para volume baixo, futuro precisará paginar."
+  ],
+  "updated_files": ["/app/backend/tests/test_caicho_api.py"],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100%"},
+  "test_credentials": "Admin donas/Seinao10@@",
+  "seed_data_creation": "Injetados alguns acessos TEST_backend/TEST_stats/TEST_list_unique/TEST_ui[1-3] durante os testes (via /api/access/track).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Testids do login painel são donas-input-user/donas-input-pass/donas-submit (não donas-login-*). Stat cards: stat-'TOTAL DE ACESSOS' / stat-'HOJE' / stat-'ÚLTIMA HORA' / stat-'ÚLTIMOS 7 DIAS'. Rotas admin de acesso: /api/access/{track,stats,list,export}; requireAdmin baseia-se em Bearer JWT com role=admin do /api/admin/login. Ao navegar para /donaspainel via wouter o tracker é suprimido (verificado). Preview URL: https://pf-senha-flow.preview.emergentagent.com."
+}

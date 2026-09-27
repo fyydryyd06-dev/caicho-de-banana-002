@@ -69,3 +69,73 @@ class TestPFSenha:
         assert r.status_code == 200, r.text
         data = r.json()
         assert isinstance(data, dict)
+
+
+
+# Access tracking endpoints
+class TestAccessTracking:
+    def _login(self):
+        r = requests.post(f"{BASE_URL}/api/admin/login",
+                          json={"username": "donas", "password": "Seinao10@@"}, timeout=15)
+        assert r.status_code == 200
+        return r.json().get("token") or r.json().get("accessToken")
+
+    def test_track_public(self):
+        r = requests.post(f"{BASE_URL}/api/access/track", json={
+            "route": "/TEST_backend", "language": "pt-BR", "timezone": "America/Sao_Paulo",
+            "screen": "1920x1080", "referrer": "", "userAgent": "pytest-agent/1.0"
+        }, timeout=15)
+        assert r.status_code == 200, r.text
+        assert r.json().get("ok") is True
+
+    def test_stats_requires_auth(self):
+        r = requests.get(f"{BASE_URL}/api/access/stats", timeout=15)
+        assert r.status_code == 401
+
+    def test_list_requires_auth(self):
+        r = requests.get(f"{BASE_URL}/api/access/list", timeout=15)
+        assert r.status_code == 401
+
+    def test_export_requires_auth(self):
+        r = requests.get(f"{BASE_URL}/api/access/export", timeout=15)
+        assert r.status_code == 401
+
+    def test_stats_with_token(self):
+        # Ensure at least one access exists
+        requests.post(f"{BASE_URL}/api/access/track", json={"route": "/TEST_stats"}, timeout=15)
+        token = self._login()
+        r = requests.get(f"{BASE_URL}/api/access/stats",
+                         headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        for k in ("total", "today", "lastHour", "last7days", "byHour", "topRoutes", "recent"):
+            assert k in d, f"missing key {k}"
+        assert d["total"] >= 1
+        assert isinstance(d["byHour"], list) and len(d["byHour"]) == 24
+        assert isinstance(d["recent"], list)
+
+    def test_list_with_token_and_search(self):
+        requests.post(f"{BASE_URL}/api/access/track", json={"route": "/TEST_list_unique"}, timeout=15)
+        token = self._login()
+        r = requests.get(f"{BASE_URL}/api/access/list",
+                         headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        assert r.status_code == 200
+        items = r.json().get("items", [])
+        assert isinstance(items, list) and len(items) >= 1
+        item = items[0]
+        for k in ("id", "route", "ip", "browser", "createdAt"):
+            assert k in item
+
+        r2 = requests.get(f"{BASE_URL}/api/access/list?q=TEST_list_unique",
+                          headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        assert r2.status_code == 200
+        assert any("TEST_list_unique" in it["route"] for it in r2.json().get("items", []))
+
+    def test_export_csv(self):
+        token = self._login()
+        r = requests.get(f"{BASE_URL}/api/access/export",
+                         headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        assert r.status_code == 200
+        assert "text/csv" in r.headers.get("Content-Type", "")
+        body = r.text
+        assert body.startswith('createdAt,route,ip,browser')
