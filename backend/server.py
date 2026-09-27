@@ -10,6 +10,7 @@ unchanged (no migration to FastAPI/Mongo).
 
 import asyncio
 import os
+import shutil
 import signal
 import subprocess
 from contextlib import asynccontextmanager
@@ -50,20 +51,28 @@ API_DIST = str(API_DIR / "dist" / "index.mjs")
 
 def _ensure_postgres() -> None:
     # PostgreSQL lives outside the persisted dirs and resets on pod restarts.
-    # Bring the local cluster up and (best-effort) restore the demo role/db so
-    # the Express server can connect. Data/seed are restored manually if needed.
-    subprocess.run(["pg_ctlcluster", "15", "main", "start"], check=False)
-    subprocess.run(
+    # Best-effort: bring the local cluster up and restore the demo role/db so
+    # the Express server can connect. NEVER raise from here (a missing binary
+    # or permission error must not crash the backend startup).
+    pg_ctl = shutil.which("pg_ctlcluster") or "/usr/bin/pg_ctlcluster"
+    commands = [
+        [pg_ctl, "15", "main", "start"],
         ["sudo", "-u", "postgres", "psql", "-c",
          "ALTER USER postgres WITH PASSWORD 'postgres';"],
-        check=False,
-    )
-    subprocess.run(
         ["sudo", "-u", "postgres", "sh", "-c",
          "psql -tc \"SELECT 1 FROM pg_database WHERE datname='caicho'\" | grep -q 1 "
          "|| createdb caicho"],
-        check=False,
-    )
+    ]
+    for cmd in commands:
+        try:
+            subprocess.run(
+                cmd,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
 
 
 def _spawn_express() -> subprocess.Popen:
