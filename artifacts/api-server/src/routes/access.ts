@@ -1,9 +1,12 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { desc, gte, sql } from "drizzle-orm";
+import { and, desc, gte, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { db, accessesTable, type AccessRow } from "@workspace/db";
 
 const router: IRouter = Router();
+
+/** Exclui acessos de teste/mock (rota iniciando com TEST_ ou /TEST_ ). */
+const notTest = sql`left(${accessesTable.route}, 5) <> 'TEST_' AND left(${accessesTable.route}, 6) <> '/TEST_'`;
 
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization ?? "";
@@ -92,7 +95,9 @@ router.get("/access/stats", requireAdmin, async (_req, res) => {
 
   const count = async (from?: Date) => {
     const q = db.select({ c: sql<number>`count(*)::int` }).from(accessesTable);
-    const rows = from ? await q.where(gte(accessesTable.createdAt, from)) : await q;
+    const rows = from
+      ? await q.where(and(notTest, gte(accessesTable.createdAt, from)))
+      : await q.where(notTest);
     return rows[0]?.c ?? 0;
   };
 
@@ -101,6 +106,7 @@ router.get("/access/stats", requireAdmin, async (_req, res) => {
   ]);
 
   const recentRows = await db.select().from(accessesTable)
+    .where(notTest)
     .orderBy(desc(accessesTable.createdAt)).limit(15);
 
   const byHourRows = await db
@@ -109,7 +115,7 @@ router.get("/access/stats", requireAdmin, async (_req, res) => {
       c: sql<number>`count(*)::int`,
     })
     .from(accessesTable)
-    .where(gte(accessesTable.createdAt, dayAgo))
+    .where(and(notTest, gte(accessesTable.createdAt, dayAgo)))
     .groupBy(sql`1`);
   const byHourMap = new Map(byHourRows.map((r) => [r.h, r.c]));
   const byHour: { hour: string; count: number }[] = [];
@@ -122,6 +128,7 @@ router.get("/access/stats", requireAdmin, async (_req, res) => {
   const topRows = await db
     .select({ route: accessesTable.route, c: sql<number>`count(*)::int` })
     .from(accessesTable)
+    .where(notTest)
     .groupBy(accessesTable.route)
     .orderBy(sql`count(*) desc`)
     .limit(8);
@@ -141,17 +148,17 @@ router.get("/access/list", requireAdmin, async (req, res) => {
   if (q) {
     const like = `%${q}%`;
     rows = await db.select().from(accessesTable)
-      .where(sql`${accessesTable.route} ILIKE ${like} OR ${accessesTable.ip} ILIKE ${like} OR ${accessesTable.browser} ILIKE ${like} OR ${accessesTable.language} ILIKE ${like} OR ${accessesTable.timezone} ILIKE ${like}`)
+      .where(and(notTest, sql`(${accessesTable.route} ILIKE ${like} OR ${accessesTable.ip} ILIKE ${like} OR ${accessesTable.browser} ILIKE ${like} OR ${accessesTable.language} ILIKE ${like} OR ${accessesTable.timezone} ILIKE ${like})`))
       .orderBy(desc(accessesTable.createdAt)).limit(500);
   } else {
-    rows = await db.select().from(accessesTable).orderBy(desc(accessesTable.createdAt)).limit(500);
+    rows = await db.select().from(accessesTable).where(notTest).orderBy(desc(accessesTable.createdAt)).limit(500);
   }
   res.json({ items: rows.map(toClient) });
 });
 
 /** Admin: exportar CSV. */
 router.get("/access/export", requireAdmin, async (_req, res) => {
-  const rows = await db.select().from(accessesTable).orderBy(desc(accessesTable.createdAt)).limit(5000);
+  const rows = await db.select().from(accessesTable).where(notTest).orderBy(desc(accessesTable.createdAt)).limit(5000);
   const cols = ["createdAt", "route", "ip", "browser", "os", "deviceType", "language", "timezone", "screen", "referrer", "location"];
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const lines = [cols.join(",")];

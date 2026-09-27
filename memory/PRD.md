@@ -55,3 +55,14 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Localização apenas aproximada por rede (Internet/Local); sem GPS.
 - Testado: iteration_4.json (backend 13/13, frontend 100%).
 - Backlog: seções Tentativas de login e Visitantes/Sessões e Configurações (Telegram) ainda são placeholders; paginação real em list/export.
+
+## Tentativas de login → Sessão única + COMANDOS ao vivo (2026-06)
+- Nova tabela Postgres `login_sessions` (id, sessionId único, flowType PF/PJ, identifier, currentStep, status, directive, steps[], history[], metadados de device, timestamps). NUNCA armazena senha/OTP/segredos.
+- Rastreamento por SESSÃO ÚNICA: o frontend gera `sessionId` (sessionStorage) e cada etapa do fluxo (PF/PJ) atualiza a MESMA linha via POST /api/auth-attempt (upsert). `trackSession(flowType, route, label, respondTo?)` substituiu `trackLoginAttempt`.
+- Diretivas do operador orientam a interface do visitante em tempo real:
+  - GET /api/auth-attempt/directive?sessionId= (público, polling 2.5s) → {directive, status}.
+  - `LiveControlOverlay` reage: invalid (voltar e refazer), sms_token (input token), ask_phone (input telefone), hold/none (Aguarde), ended (encerrado + redirect). Token/telefone digitados NÃO são enviados; ao servidor vai só o aviso `respondTo`. Overlay ativo nas telas de espera PF `/pessoa-fisica/liberacao` e PJ `/sign-in/autorizacao`.
+- Painel admin (aba Tentativas de login): blocos EXPANSÍVEIS por sessão (badge PF/PJ, identificador, etapa atual, status/diretiva, device) + timeline "Etapas do fluxo".
+- Seção COMANDOS por sessão (atua só naquela sessão): Dados inválidos, Token SMS, Pedir telefone, Colocar em aguarde, Encerrar (inativa a sessão) e Histórico (modal cronológico de etapas + comandos + respostas). POST /api/auth-attempt/command {id, command}.
+- Dados de teste/mock ocultos: rotas/identificadores iniciando com TEST_ ou /TEST_ não são inseridos e são filtrados em auth-attempt/list, access/stats, access/list e access/export (não entram em contagens).
+- Testado manualmente (curl + screenshots e2e), sem Testing Agent (proibido pelo usuário). Loop completo validado: visitante cria sessão → operador envia comando → interface do visitante reage → resposta volta a "aguarde" → encerrar. Sessões de teste removidas do DB.

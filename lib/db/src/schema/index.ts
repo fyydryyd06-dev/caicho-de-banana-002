@@ -2,3 +2,4 @@
 export * from "./accounts";
 export * from "./accesses";
 export * from "./loginAttempts";
+export * from "./loginSessions";

