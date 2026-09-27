@@ -159,6 +159,8 @@ const authHeaders = (): Record<string, string> => {
 interface AccessItem {
   id: string;
   route: string;
+  login?: string | null;
+  status?: string | null;
   ip: string | null;
   browser: string | null;
   deviceType: string | null;
@@ -200,6 +202,12 @@ function AccessDetailModal({ item, onClose }: { item: AccessItem; onClose: () =>
           <button type="button" onClick={onClose} aria-label="Fechar" data-testid="access-detail-close">×</button>
         </div>
         <dl className="donas-modal-body">
+          {item.status != null && (
+            <div><dt>Status</dt><dd><span className={`donas-status donas-status--${item.status}`}>{item.status}</span></dd></div>
+          )}
+          {item.login != null && (
+            <div><dt>Login/Identificador</dt><dd>{item.login || '-'}</dd></div>
+          )}
           <div><dt>Rota</dt><dd>{item.route}</dd></div>
           <div><dt>Quando</dt><dd>{new Date(item.createdAt).toLocaleString('pt-BR')}</dd></div>
           <div><dt>IP</dt><dd>{item.ip ?? '-'}</dd></div>
@@ -345,6 +353,61 @@ function AcessosView({ onOpen }: { onOpen: (a: AccessItem) => void }) {
   );
 }
 
+function TentativasView({ onOpen }: { onOpen: (a: AccessItem) => void }) {
+  const [items, setItems] = useState<AccessItem[]>([]);
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch('/api/auth-attempt/list', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d) setItems(d.items); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  const term = q.trim().toLowerCase();
+  const filtered = term
+    ? items.filter((a) =>
+        [a.route, a.login, a.ip, a.browser, a.status].some((v) => (v ?? '').toLowerCase().includes(term)))
+    : items;
+  return (
+    <div className="donas-acessos" data-testid="tentativas-view">
+      <div className="donas-toolbar">
+        <input
+          className="donas-search"
+          placeholder="Buscar login, rota, IP, status…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          data-testid="tentativas-search"
+        />
+        <span className="donas-mini-btn" style={{ cursor: 'default' }}>{filtered.length} tentativas</span>
+      </div>
+      <div className="donas-table-wrap">
+        <table className="donas-table">
+          <thead>
+            <tr><th>#</th><th>Status</th><th>Origem</th><th>Login / Identificador</th><th>IP</th><th>Navegador</th><th>Dispositivo</th><th>Data/hora</th></tr>
+          </thead>
+          <tbody>
+            {filtered.map((a, i) => (
+              <tr key={a.id} onClick={() => onOpen(a)} data-testid="tentativas-row">
+                <td>{i + 1}</td>
+                <td><span className={`donas-status donas-status--${a.status}`}>{a.status}</span></td>
+                <td>{a.route}</td>
+                <td>{a.login ?? '-'}</td>
+                <td>{a.ip}</td>
+                <td>{a.browser}</td>
+                <td>{a.deviceType}</td>
+                <td>{new Date(a.createdAt).toLocaleString('pt-BR')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function DonasDashboard({ username, onLogout }: { username: string; onLogout: () => void }) {
   const [active, setActive] = useState<(typeof MENU)[number]['key']>('dashboard');
   const [detail, setDetail] = useState<AccessItem | null>(null);
@@ -392,7 +455,8 @@ function DonasDashboard({ username, onLogout }: { username: string; onLogout: ()
         <section className="donas-content">
           {active === 'dashboard' && <DashboardView onOpen={setDetail} />}
           {active === 'acessos' && <AcessosView onOpen={setDetail} />}
-          {active !== 'dashboard' && active !== 'acessos' && (
+          {active === 'tentativas' && <TentativasView onOpen={setDetail} />}
+          {active !== 'dashboard' && active !== 'acessos' && active !== 'tentativas' && (
             <div className="donas-empty">
               <current.icon size={30} />
               <h2>{current.label}</h2>

