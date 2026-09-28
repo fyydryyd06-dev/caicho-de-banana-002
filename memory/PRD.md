@@ -99,3 +99,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Alerta de retorno: SessionBlock detecta transição offline→online (useRef prevOnline) e aplica classe `.is-returned` no card (borda verde/glow) e no badge por ~4.5s. Ignora o estado inicial.
 - Última presença: hub agora rastreia `_last_online_at` e envia `lastSeen` (epoch ms) nos eventos `presence` (offline) e no `snapshot`. Hook `useAdminPresence()` retorna `{online, lastSeen}`. Badge offline mostra "Offline · visto <lastSeenLabel>" (segundos/min/h/d).
 - Validado e2e (2 contextos, visibilidade simulada de forma determinística): 1→0→1 online, "visto agora mesmo/há 50s", classe is-returned ao voltar. Backend reiniciado (server.py). Sem Testing Agent.
+
+## Fix presença: critério de Online (2026-06)
+- Sintoma: operador via "Offline/0 online" mesmo com o usuário no site, porque o critério usava `document.hasFocus()` — ao focar a janela do painel (mesmo navegador), a janela do site perdia foco e virava Offline.
+- Correção (presence.ts): `computeVisible()` agora usa SOMENTE `document.visibilityState === 'visible'`. Removidos listeners focus/blur (mantidos visibilitychange/pageshow/online/offline/pagehide/beforeunload). Blur de janela não derruba mais a presença; Offline só em troca de aba, minimizar, fechar ou perda de conexão (heartbeat ~9s).
+- Validado e2e: blur de janela → permanece Online; troca de aba → Offline; voltar → Online. Backend inalterado.

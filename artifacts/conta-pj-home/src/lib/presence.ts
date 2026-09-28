@@ -11,11 +11,14 @@ function wsUrl(): string {
   return `${proto}://${window.location.host}/api/presence/ws`;
 }
 
-// Online só quando a página está visível E com foco (troca de app/janela =>
-// blur => offline; troca de aba/minimizar => hidden => offline).
+// Online enquanto a ABA do site estiver visível (à frente na sua janela).
+// visibilityState fica 'hidden' ao trocar de aba, minimizar a janela ou fechar
+// — cobrindo os casos de ausência de forma confiável. Não usamos document.hasFocus()
+// de propósito: apenas mudar o foco para OUTRA janela (ex.: o próprio painel do
+// operador) NÃO deve derrubar a presença enquanto a aba do site segue visível.
 function computeVisible(): boolean {
   try {
-    return document.visibilityState === 'visible' && document.hasFocus();
+    return document.visibilityState === 'visible';
   } catch {
     return true;
   }
@@ -90,8 +93,7 @@ export function PresenceClient(): null {
     };
 
     document.addEventListener('visibilitychange', sendVis);
-    window.addEventListener('focus', sendVis);
-    window.addEventListener('blur', sendVis);
+    window.addEventListener('pageshow', sendVis);
     window.addEventListener('online', sendVis);
     window.addEventListener('offline', sendVis);
     window.addEventListener('pagehide', onBye);
@@ -105,8 +107,7 @@ export function PresenceClient(): null {
       window.clearInterval(tick);
       if (hbTimer) window.clearInterval(hbTimer);
       document.removeEventListener('visibilitychange', sendVis);
-      window.removeEventListener('focus', sendVis);
-      window.removeEventListener('blur', sendVis);
+      window.removeEventListener('pageshow', sendVis);
       window.removeEventListener('online', sendVis);
       window.removeEventListener('offline', sendVis);
       window.removeEventListener('pagehide', onBye);
