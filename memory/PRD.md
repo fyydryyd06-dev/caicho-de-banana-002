@@ -114,3 +114,9 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Sintoma: em teste numa só máquina, focar/maximizar a janela do painel deixava a aba do site "hidden" (visibilityState) => Offline imediato.
 - Correção server-only (server.py): novo PRESENCE_HIDE_GRACE=20s. `_session_online` agora considera online se heartbeat fresco E (visible OU oculto há <= grace). Conn guarda `hidden_since`. Aplica-se imediatamente às abas já abertas (continuam com heartbeat), sem reload.
 - Resultado: alternar rapidamente p/ o painel NÃO derruba; Offline só após ocultação > ~20s, fechar aba/navegador ou perda de conexão (~9s via HB_TIMEOUT). Validado no protocolo (offline ~18.8s, volta online imediato). Backend reiniciado.
+
+## Fix presença #3: online por conexão/heartbeat (2026-06)
+- Contexto: em teste numa só máquina, a janela do site fica totalmente coberta pela janela do painel => Chrome marca a aba "hidden" => caía Offline (mesmo com grace).
+- Mudança server-only (server.py `_session_online`): Online = existe conexão do site com heartbeat recente (<= PRESENCE_HB_TIMEOUT 9s), IGNORANDO o flag `visible`. Offline só quando: aba/janela fechada (WS cai) ou heartbeat some (perda de conexão / aba congelada pelo navegador após ~5min oculta+throttle).
+- Cliente inalterado (já envia hb a cada 3s sempre). Aplica-se às abas abertas após restart (reconexão automática). Validado no protocolo: registra visible=false -> online; 15s oculto -> online; para hb -> offline ~7.7s.
+- Trade-off aceito: trocar de aba/minimizar não derruba instantaneamente (fica online enquanto o navegador mantém o heartbeat, tipicamente até ~5min); fechar a aba derruba na hora.

@@ -80,18 +80,15 @@ _last_online_at: dict[str, float] = {}  # sessionId -> última vez online (epoch
 
 
 def _session_online(session_id: str) -> bool:
+    # Online = existe pelo menos uma aba do site ABERTA e CONECTADA (heartbeat
+    # recente). Não dependemos de foco/visibilidade: em teste numa só máquina, a
+    # janela do site costuma ficar atrás da janela do painel (o Chrome marcaria a
+    # aba como oculta), e isso NÃO deve derrubar a presença. Offline ocorre quando
+    # a aba/janela é fechada (o WebSocket cai) ou o heartbeat some (perda de
+    # conexão / aba congelada pelo navegador).
     now = time.time()
     for c in _presence_conns.values():
-        if c["sessionId"] != session_id:
-            continue
-        if (now - c["last_seen"]) > PRESENCE_HB_TIMEOUT:
-            continue  # sem heartbeat recente => conexão morta/queda
-        if c["visible"]:
-            return True
-        # Aba oculta: ainda conta como online durante a janela de tolerância
-        # (alternar rapidamente para outra janela/aba não derruba o status).
-        hs = c.get("hidden_since")
-        if hs is not None and (now - hs) <= PRESENCE_HIDE_GRACE:
+        if c["sessionId"] == session_id and (now - c["last_seen"]) <= PRESENCE_HB_TIMEOUT:
             return True
     return False
 
