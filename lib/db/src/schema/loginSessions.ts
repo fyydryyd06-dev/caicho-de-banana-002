@@ -22,6 +22,8 @@ export const loginSessionsTable = pgTable("login_sessions", {
   currentStep: text("current_step"),
   status: text("status").notNull().default("active"), // 'active' | 'ended'
   directive: text("directive").notNull().default("none"), // none|hold|invalid|sms_token|ask_phone|ended
+  smsLast3: text("sms_last3"), // 3 últimos dígitos fictícios (homologação) — não sensível
+  smsTestCode: text("sms_test_code"), // código de homologação gerado pelo sistema (fictício)
   steps: jsonb("steps").$type<SessionStep[]>().notNull().default(sql`'[]'::jsonb`),
   history: jsonb("history").$type<SessionHistoryEntry[]>().notNull().default(sql`'[]'::jsonb`),
   ip: text("ip"),

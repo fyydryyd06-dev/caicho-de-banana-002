@@ -3444,6 +3444,25 @@ body {
 @media (max-width: 640px) {
   .donas-fields { grid-template-columns: 1fr; }
 }
+
+/* Modal Token SMS (homologação) */
+.donas-sms-help { margin: 0 0 14px; color: #b9bfe0; font-size: 13px; line-height: 1.5; }
+.donas-sms-help b { color: #f0f2ff; }
+.donas-sms-result { display: flex; flex-direction: column; gap: 12px; }
+.donas-sms-result p { margin: 0; color: #b9bfe0; font-size: 13px; line-height: 1.5; }
+.donas-sms-result b { color: #f0f2ff; }
+.donas-sms-code {
+  align-self: center;
+  padding: 12px 26px;
+  border-radius: 12px;
+  background: rgba(74,168,255,0.16);
+  border: 1px solid rgba(74,168,255,0.4);
+  color: #dff0ff;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em;
+}
 .donas-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .donas-timeline-item { position: relative; display: flex; gap: 12px; padding: 8px 0 8px 4px; }
 .donas-timeline-item > div { display: flex; flex-direction: column; gap: 2px; }
@@ -3469,8 +3488,7 @@ body {
 .donas-cmd-btn--danger:hover:not(:disabled) { background: rgba(255,90,90,0.16); border-color: #ff7a7a; }
 .donas-cmd-btn--ghost { border-style: dashed; color: #9aa1c4; }
 
-/* ===== Overlay de controle ao vivo (frontend público) ===== */
-.live-control-card {
+/* ===== Overlay de controle ao vivo (frontend público) ===== */.live-control-card {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   width: min(360px, calc(100vw - 40px));
   padding: 30px 26px; border-radius: 18px;
@@ -3493,6 +3511,21 @@ body {
 }
 .live-control-btn:hover:not(:disabled) { filter: brightness(0.95); transform: translateY(-1px); }
 .live-control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* PJ — tela de código de liberação (homologação), sobre a página de autorização */
+.pj-code-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: #fff;
+  overflow-y: auto;
+}
+.token-error {
+  margin: -2px 0 4px;
+  color: #d32f2f;
+  font-size: 13px;
+  font-weight: 600;
+}
 
 @media (max-width: 900px) {
   .donas-session-head { grid-template-columns: auto 1fr auto; grid-auto-rows: auto; }

