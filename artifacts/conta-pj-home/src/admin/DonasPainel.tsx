@@ -599,7 +599,7 @@ function SessionBlock({
                 className={`donas-cmd-btn${session.directive === c.key ? ' is-active' : ''}`}
                 disabled={ended}
                 onClick={() => {
-                  if (c.key === 'sms_token' && session.flowType === 'PJ') openSms();
+                  if (c.key === 'sms_token') openSms();
                   else onCommand(session.id, c.key);
                 }}
                 data-testid={`session-cmd-${c.key}`}
