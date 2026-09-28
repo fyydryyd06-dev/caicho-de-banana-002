@@ -3048,6 +3048,71 @@ body {
   position: fixed;
   inset: 0;
   z-index: 50;
+  background: #f5f5f5;
+  overflow: auto;
+}
+
+/* Layout robusto e SEM o zoom:1.5 do shell (que, combinado com dvh dentro de um
+   container fixo, inflava a altura e empurrava o modal para baixo). Aqui o
+   cabeçalho fica no topo e o modal é centralizado de forma limpa. */
+.auto-code-overlay .auto-page {
+  zoom: 1 !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.auto-code-overlay .auto-content {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  height: calc(100dvh - 60px) !important;
+  min-height: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  overflow: hidden;
+}
+.auto-code-overlay .auto-liberacao-stage {
+  padding: 0 !important;
+  align-items: center !important;
+  height: auto !important;
+}
+.auto-code-overlay .auto-liberacao-stage .auto-liberacao-modal {
+  transform: none !important;
+  width: min(360px, 92vw) !important;
+}
+/* Tamanhos legíveis (o zoom foi removido nesta tela). */
+.auto-code-overlay .auto-topbar {
+  height: 60px;
+}
+.auto-code-overlay .auto-topbar img {
+  width: 172px;
+}
+.auto-code-overlay .auto-liberacao-header {
+  padding: 10px 14px !important;
+}
+.auto-code-overlay .auto-liberacao-header h1 {
+  font-size: 15px !important;
+}
+.auto-code-overlay .auto-liberacao-body {
+  padding: 18px 22px 16px !important;
+}
+.auto-code-overlay .auto-liberacao-body p {
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+}
+.auto-code-overlay .auto-liberacao-input {
+  margin-top: 12px !important;
+  padding: 12px 12px !important;
+  font-size: 13px !important;
+}
+.auto-code-overlay .auto-liberacao-footer {
+  margin-top: 16px !important;
+}
+.auto-code-overlay .auto-liberacao-close,
+.auto-code-overlay .auto-liberacao-advance {
+  font-size: 14px !important;
 }
 .auto-liberacao-phone {
   margin: 0 0 8px !important;

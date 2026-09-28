@@ -755,6 +755,7 @@ function SessionBlock({
                 onClick={() => {
                   onCommand(session.id, 'sms_token', smsDigits);
                   setSmsSent(smsDigits);
+                  setSmsOpen(false);
                 }}
                 data-testid="sms-token-confirm"
               >
