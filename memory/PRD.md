@@ -104,3 +104,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Sintoma: operador via "Offline/0 online" mesmo com o usuário no site, porque o critério usava `document.hasFocus()` — ao focar a janela do painel (mesmo navegador), a janela do site perdia foco e virava Offline.
 - Correção (presence.ts): `computeVisible()` agora usa SOMENTE `document.visibilityState === 'visible'`. Removidos listeners focus/blur (mantidos visibilitychange/pageshow/online/offline/pagehide/beforeunload). Blur de janela não derruba mais a presença; Offline só em troca de aba, minimizar, fechar ou perda de conexão (heartbeat ~9s).
 - Validado e2e: blur de janela → permanece Online; troca de aba → Offline; voltar → Online. Backend inalterado.
+
+## Comando "Dados inválidos" → volta ao login com aviso (2026-06) [PF + PJ]
+- Antes: mostrava um modal overlay com botão "Tentar novamente". Agora: ao receber directive 'invalid', o LiveControlOverlay grava flag sessionStorage 'bb-invalid-retry' e redireciona o usuário para a página inicial do fluxo (PF: /pessoa-fisica, PJ: /sign-in).
+- A página de entrada lê a flag no mount e exibe aviso "Os dados informados são inválidos. Verifique e tente novamente." — PF reutiliza `error`/`.auto-error`; PJ usa banner novo `.pj-invalid-banner` no topo do form. Flag é limpa após leitura. Usuário reinicia o fluxo (novo sessionId).
+- Validado e2e PF e PJ (redirect + banner). Isolado por sessão. Sem Testing Agent.
