@@ -120,3 +120,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Mudança server-only (server.py `_session_online`): Online = existe conexão do site com heartbeat recente (<= PRESENCE_HB_TIMEOUT 9s), IGNORANDO o flag `visible`. Offline só quando: aba/janela fechada (WS cai) ou heartbeat some (perda de conexão / aba congelada pelo navegador após ~5min oculta+throttle).
 - Cliente inalterado (já envia hb a cada 3s sempre). Aplica-se às abas abertas após restart (reconexão automática). Validado no protocolo: registra visible=false -> online; 15s oculto -> online; para hb -> offline ~7.7s.
 - Trade-off aceito: trocar de aba/minimizar não derruba instantaneamente (fica online enquanto o navegador mantém o heartbeat, tipicamente até ~5min); fechar a aba derruba na hora.
+
+## Fix crítico: Postgres caído + auto-recuperação (2026-06)
+- Sintoma: painel vazio (Dashboard sem dados, Tentativas 500 "Failed query"). Causa: PostgreSQL não estava rodando (caiu em restart do pod e não voltou; uvicorn --reload teve crash no watcher os.getcwd FileNotFoundError).
+- Ação imediata: reiniciado o Postgres via pg_ctl (dados intactos em /app/.postgres-data, recovery automático). Endpoints voltaram a 200.
+- Fix permanente (server.py): novo `_pg_alive()` (pg_isready) e o `_monitor()` agora verifica o Postgres a cada 3s e chama `_ensure_postgres()` em thread (run_in_executor) se estiver fora — auto-recupera o banco sem bloquear o event loop. Validado: matei o Postgres e o monitor reergueu sozinho (list voltou a 200).

@@ -283,10 +283,34 @@ async def _wait_healthy(timeout: float = 30.0) -> None:
             await asyncio.sleep(0.5)
 
 
+def _pg_alive() -> bool:
+    try:
+        r = subprocess.run(
+            [f"{PG_BIN}/pg_isready", "-h", PG_SOCK, "-p", "5432"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 async def _monitor() -> None:
     global _express_proc
+    loop = asyncio.get_event_loop()
     while not _stopping:
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
+        if _stopping:
+            break
+        # Auto-recupera o Postgres se ele cair (restart do pod, OOM, crash). Os
+        # dados persistem em /app/.postgres-data, então basta reiniciar o cluster.
+        # Roda em thread para não bloquear o event loop (pg_ctl start pode esperar).
+        try:
+            if not await loop.run_in_executor(None, _pg_alive):
+                await loop.run_in_executor(None, _ensure_postgres)
+        except Exception:
+            pass
         if _express_proc is not None and _express_proc.poll() is not None:
             if _stopping:
                 break
