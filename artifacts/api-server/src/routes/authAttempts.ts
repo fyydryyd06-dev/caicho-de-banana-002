@@ -305,4 +305,21 @@ router.post("/auth-attempt/sms-entry", async (req, res) => {
   res.json({ ok: true });
 });
 
+/** Admin: exclui UMA tentativa/sessão permanentemente (ação explícita do operador). */
+router.delete("/auth-attempt/:id", requireAdmin, async (req, res) => {
+  const id = str(req.params?.id, 80);
+  if (!id) {
+    res.status(400).json({ message: "id ausente." });
+    return;
+  }
+  await db.delete(loginSessionsTable).where(eq(loginSessionsTable.id, id));
+  res.json({ ok: true });
+});
+
+/** Admin: exclui TODAS as tentativas/sessões permanentemente (após confirmação no painel). */
+router.delete("/auth-attempt", requireAdmin, async (_req, res) => {
+  await db.delete(loginSessionsTable);
+  res.json({ ok: true });
+});
+
 export default router;

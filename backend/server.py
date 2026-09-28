@@ -50,30 +50,57 @@ _stopping = False
 API_DIST = str(API_DIR / "dist" / "index.mjs")
 
 
+PG_BIN = "/usr/lib/postgresql/15/bin"
+PGDATA = "/app/.postgres-data"
+PG_SOCK = "/var/run/postgresql"
+
+
+def _pg_run(cmd):
+    try:
+        subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
 def _ensure_postgres() -> None:
-    # PostgreSQL lives outside the persisted dirs and resets on pod restarts.
-    # Best-effort: bring the local cluster up and restore the demo role/db so
-    # the Express server can connect. NEVER raise from here (a missing binary
-    # or permission error must not crash the backend startup).
-    pg_ctl = shutil.which("pg_ctlcluster") or "/usr/bin/pg_ctlcluster"
-    commands = [
-        [pg_ctl, "15", "main", "start"],
-        ["sudo", "-u", "postgres", "psql", "-c",
-         "ALTER USER postgres WITH PASSWORD 'postgres';"],
-        ["sudo", "-u", "postgres", "sh", "-c",
-         "psql -tc \"SELECT 1 FROM pg_database WHERE datname='caicho'\" | grep -q 1 "
-         "|| createdb caicho"],
-    ]
-    for cmd in commands:
+    # PERSISTÊNCIA: o data dir padrão do Postgres (/var/lib/postgresql) fica FORA
+    # dos diretórios persistidos e ZERA a cada restart/deploy do pod, apagando as
+    # Tentativas de login. Para preservar os registros indefinidamente, usamos um
+    # data dir DENTRO de /app (persistido). Assim os dados sobrevivem a restarts.
+    # Best-effort: NUNCA levanta exceção (não pode derrubar o startup do backend).
+    initdb = f"{PG_BIN}/initdb"
+    pg_ctl = f"{PG_BIN}/pg_ctl"
+
+    _pg_run(["mkdir", "-p", PG_SOCK])
+    _pg_run(["chown", "postgres:postgres", PG_SOCK])
+    _pg_run(["mkdir", "-p", PGDATA])
+    _pg_run(["chown", "-R", "postgres:postgres", PGDATA])
+    _pg_run(["chmod", "700", PGDATA])
+
+    # Inicializa o cluster UMA vez (fica persistido em /app).
+    if not os.path.exists(os.path.join(PGDATA, "PG_VERSION")):
+        _pg_run(["sudo", "-u", "postgres", initdb, "-D", PGDATA, "-U", "postgres",
+                 "--auth-local=trust", "--auth-host=md5", "-E", "UTF8"])
+
+    # Remove postmaster.pid órfão (pod morto de forma abrupta) para permitir start.
+    pid_file = os.path.join(PGDATA, "postmaster.pid")
+    if os.path.exists(pid_file):
         try:
-            subprocess.run(
-                cmd,
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            subprocess.run(["pgrep", "-x", "postgres"], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
-            pass
+            _pg_run(["rm", "-f", pid_file])
+
+    _pg_run(["sudo", "-u", "postgres", pg_ctl, "-D", PGDATA, "-w", "-t", "60",
+             "-l", os.path.join(PGDATA, "server.log"),
+             "-o", f"-p 5432 -c listen_addresses=127.0.0.1 -c unix_socket_directories={PG_SOCK}",
+             "start"])
+
+    _pg_run(["sudo", "-u", "postgres", "psql", "-h", PG_SOCK, "-c",
+             "ALTER USER postgres WITH PASSWORD 'postgres';"])
+    _pg_run(["sudo", "-u", "postgres", "sh", "-c",
+             f"psql -h {PG_SOCK} -tc \"SELECT 1 FROM pg_database WHERE datname='caicho'\" "
+             f"| grep -q 1 || createdb -h {PG_SOCK} caicho"])
 
 
 def _ensure_schema() -> None:

