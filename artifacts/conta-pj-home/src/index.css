@@ -3423,6 +3423,27 @@ body {
 .donas-kv-grid dt { color: #8890b5; font-size: 12px; }
 .donas-kv-grid dd { margin: 0; color: #e7e9f7; font-size: 12.5px; word-break: break-word; }
 .donas-section-title { margin: 18px 0 10px; color: #8890b5; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; }
+.donas-session-body > .donas-section-title:first-child { margin-top: 14px; }
+.donas-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.donas-field {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(124,92,255,0.09);
+  border: 1px solid rgba(124,92,255,0.16);
+}
+.donas-field dt { color: #9aa1c4; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.donas-field dd { margin: 0; color: #f0f2ff; font-size: 15px; font-weight: 600; word-break: break-word; }
+.donas-fields-empty { grid-column: 1 / -1; margin: 0; color: #6b7290; font-size: 12.5px; }
+.donas-tech {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  margin: 14px 0 2px; padding: 10px 0 0;
+  border-top: 1px solid rgba(120,130,190,0.12);
+  color: #6b7290; font-size: 11.5px;
+}
+.donas-tech b { color: #8890b5; font-weight: 600; }
+@media (max-width: 640px) {
+  .donas-fields { grid-template-columns: 1fr; }
+}
 .donas-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .donas-timeline-item { position: relative; display: flex; gap: 12px; padding: 8px 0 8px 4px; }
 .donas-timeline-item > div { display: flex; flex-direction: column; gap: 2px; }
