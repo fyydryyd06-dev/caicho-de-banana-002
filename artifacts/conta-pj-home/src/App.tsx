@@ -940,6 +940,10 @@ function LiveControlOverlay({
       </div>
     );
   } else if (directive === 'sms_token_wait' || pendingWait) {
+    // Após o envio do SMS: no PJ (passivo) o próprio PjAuthorizationPage já mostra
+    // o card "INICIANDO SOLICITAÇÃO" (o aguarde do modal), então não desenhamos o
+    // spinner extra por cima. No PF o overlay continua sendo a tela de aguarde.
+    if (passiveWhenWaiting) return null;
     body = waiting;
   } else if (responded) {
     body = waiting;
