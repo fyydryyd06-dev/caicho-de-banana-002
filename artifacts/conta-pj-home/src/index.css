@@ -2783,6 +2783,21 @@ body {
   font-weight: 700;
 }
 
+/* PF — tela de código: alinha ao topo e compacta para o rodapé (LIBERAR) nunca
+   ficar sob o menu inferior fixo (viewports baixas + zoom do desktop). */
+.auto-code-overlay .auto-content {
+  padding-bottom: 24px !important;
+}
+.auto-code-overlay .auto-bottom-nav {
+  display: none !important;
+}
+.auto-code-overlay .auto-liberacao-lead {
+  margin-bottom: 10px !important;
+}
+.auto-code-overlay .auto-liberacao-phone {
+  margin-bottom: 6px !important;
+}
+
 .auto-liberacao-footer {
   display: flex;
   align-items: center;

