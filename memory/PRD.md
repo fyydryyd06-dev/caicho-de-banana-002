@@ -93,3 +93,9 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Painel: `useAdminPresence()` (WS role=admin) → mapa sessionId→online; `SessionBlock` recebe prop `online` e mostra indicador `.donas-presence` (verde "● Online" com pulse / cinza "● Offline"). Atualiza sem recarregar. testids: `session-presence-online` / `session-presence-offline`.
 - Validado: protocolo (online/offline/close/hb-timeout), WSS via ingress, e navegador (2 contextos): entrar→Online, trocar aba→Offline, voltar→Online. Sem Testing Agent.
 - Build/deploy: server.py exige `sudo supervisorctl restart backend`. Frontend hot-reload.
+
+## Presença — 3 melhorias (2026-06)
+- Contagem ao vivo: chip "● N online" no topo do TentativasView (conta itens filtrados com presence.online). Atualiza em tempo real via WS.
+- Alerta de retorno: SessionBlock detecta transição offline→online (useRef prevOnline) e aplica classe `.is-returned` no card (borda verde/glow) e no badge por ~4.5s. Ignora o estado inicial.
+- Última presença: hub agora rastreia `_last_online_at` e envia `lastSeen` (epoch ms) nos eventos `presence` (offline) e no `snapshot`. Hook `useAdminPresence()` retorna `{online, lastSeen}`. Badge offline mostra "Offline · visto <lastSeenLabel>" (segundos/min/h/d).
+- Validado e2e (2 contextos, visibilidade simulada de forma determinística): 1→0→1 online, "visto agora mesmo/há 50s", classe is-returned ao voltar. Backend reiniciado (server.py). Sem Testing Agent.

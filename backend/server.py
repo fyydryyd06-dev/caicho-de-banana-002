@@ -74,6 +74,7 @@ PRESENCE_STALE = 45.0       # remove conexões mortas da memória
 _presence_conns: dict[str, dict] = {}
 _admin_conns: set[WebSocket] = set()
 _online_state: dict[str, bool] = {}
+_last_online_at: dict[str, float] = {}  # sessionId -> última vez online (epoch s)
 
 
 def _session_online(session_id: str) -> bool:
@@ -110,9 +111,17 @@ async def _recompute_and_broadcast(session_id: str) -> None:
     if not session_id:
         return
     online = _session_online(session_id)
+    if online:
+        _last_online_at[session_id] = time.time()
     if _online_state.get(session_id) != online:
         _online_state[session_id] = online
-        await _broadcast_admin({"t": "presence", "sessionId": session_id, "online": online})
+        ls = _last_online_at.get(session_id)
+        await _broadcast_admin({
+            "t": "presence",
+            "sessionId": session_id,
+            "online": online,
+            "lastSeen": int(ls * 1000) if (not online and ls) else None,
+        })
 
 
 async def _presence_reaper() -> None:
@@ -332,7 +341,11 @@ async def presence_ws(ws: WebSocket) -> None:
             if r == "admin":
                 role = "admin"
                 _admin_conns.add(ws)
-                await ws.send_text(json.dumps({"t": "snapshot", "online": _current_online_map()}))
+                await ws.send_text(json.dumps({
+                    "t": "snapshot",
+                    "online": _current_online_map(),
+                    "lastSeen": {sid: int(t * 1000) for sid, t in _last_online_at.items()},
+                }))
             elif r == "session":
                 role = "session"
                 _presence_conns[conn_id] = {

