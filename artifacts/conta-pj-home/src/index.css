@@ -1692,6 +1692,41 @@ body {
   }
 }
 
+/* Painel admin — modal compacto do comando "Token SMS". */
+.donas-modal--sm {
+  max-width: 360px;
+}
+
+.donas-sms-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cdd3f5;
+}
+
+.donas-sms-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 130, 190, 0.35);
+  background: #f4f6ff;
+  color: #10131f;
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-align: center;
+}
+
+.donas-sms-input:focus-visible {
+  outline: none;
+  border-color: #5b6cff;
+  box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.28);
+}
+
 
 .training-app-shell {
   min-height: 100dvh;

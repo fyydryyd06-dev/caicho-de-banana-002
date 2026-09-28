@@ -78,3 +78,10 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Overlay PF só existe na etapa `/pessoa-fisica/liberacao` (após AVANÇAR). Permanece em "aguarde" até o operador enviar outro comando àquela sessão.
 - PJ INALTERADO (usa `passiveWhenWaiting`, não renderiza o modal PF). Token SMS, Dados inválidos e Pedir telefone inalterados.
 - CSS novo `.pf-hold-*` em index.css (não altera estilos existentes). Validado por screenshot e2e dirigindo o fluxo PF + comando hold via admin; modal exibido corretamente (Agência: 2232-3 / Conta: 2322323232-2). Sem Testing Agent.
+
+## Token SMS → modal com "Final do telefone" no painel (2026-06) [PF + PJ]
+- Ação "Token SMS" no card não dispara mais direto: abre um modal compacto NO PRÓPRIO painel (`SessionBlock`, DonasPainel.tsx) com o campo **Final do telefone** (exatamente 3 dígitos numéricos). Ao confirmar, envia `POST /api/auth-attempt/command {id, command:'sms_token', smsLast3}` — vinculado só àquela sessão.
+- Backend (authAttempts.ts): comando `sms_token` agora aceita `smsLast3` (valida `/^\d{3}$/`) e persiste em `login_sessions.smsLast3`; fallback ao valor existente ou ao telefone do fluxo se vier vazio. Mantida a state machine sms_token → sms_token_retry → sms_token_wait. NÃO gera/valida/armazena código real.
+- Público (ambos os fluxos): tela de código exibe "Enviamos um SMS para você do número **XX XXXXX-X###**" com os 3 dígitos do modal. PJ já usava esse formato; PF ajustado (era "(XX) XXXXX -X###") para o mesmo texto/formato.
+- IMPORTANTE build: o api-server é bundlado por esbuild (build.mjs → dist/index.mjs) no startup do backend; editar `.ts` NÃO recompila sozinho. Após mudar arquivos em artifacts/api-server, rodar `node build.mjs` e `sudo supervisorctl restart backend`.
+- Validado e2e (screenshot dirigindo fluxo + modal real do painel): PF confirmou 123 → público "XX XXXXX-X123". Backend validado via curl (smsLast3=999). Sem Testing Agent. Sessões de teste removidas.

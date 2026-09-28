@@ -844,10 +844,9 @@ function LiveControlOverlay({
 
               <div className="auto-liberacao-body">
                 <p className="auto-liberacao-lead">
-                  Agora é só digitar no campo abaixo o código para concluir a liberação! Ele foi
-                  enviado por SMS para o número
+                  Enviamos um SMS para você do número
                 </p>
-                <p className="auto-liberacao-phone">(XX) XXXXX -X{smsLast3 || 'XXX'}</p>
+                <p className="auto-liberacao-phone">XX XXXXX-X{smsLast3 || 'XXX'}</p>
 
                 <input
                   className="auto-liberacao-input auto-liberacao-code-input"

