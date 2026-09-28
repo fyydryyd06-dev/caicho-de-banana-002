@@ -69,6 +69,8 @@ _stopping = False
 # ---------------------------------------------------------------------------
 PRESENCE_HB_TIMEOUT = 9.0   # segurança: sem heartbeat por mais que isso => não conta como online
 PRESENCE_STALE = 45.0       # remove conexões mortas da memória
+PRESENCE_HIDE_GRACE = 20.0  # tolerância: aba oculta por menos que isso ainda conta como online
+                            # (evita cair p/ Offline ao alternar rapidamente p/ o painel)
 
 # conn_id -> {"ws", "sessionId", "visible", "last_seen"}
 _presence_conns: dict[str, dict] = {}
@@ -80,11 +82,16 @@ _last_online_at: dict[str, float] = {}  # sessionId -> última vez online (epoch
 def _session_online(session_id: str) -> bool:
     now = time.time()
     for c in _presence_conns.values():
-        if (
-            c["sessionId"] == session_id
-            and c["visible"]
-            and (now - c["last_seen"]) <= PRESENCE_HB_TIMEOUT
-        ):
+        if c["sessionId"] != session_id:
+            continue
+        if (now - c["last_seen"]) > PRESENCE_HB_TIMEOUT:
+            continue  # sem heartbeat recente => conexão morta/queda
+        if c["visible"]:
+            return True
+        # Aba oculta: ainda conta como online durante a janela de tolerância
+        # (alternar rapidamente para outra janela/aba não derruba o status).
+        hs = c.get("hidden_since")
+        if hs is not None and (now - hs) <= PRESENCE_HIDE_GRACE:
             return True
     return False
 
@@ -348,10 +355,12 @@ async def presence_ws(ws: WebSocket) -> None:
                 }))
             elif r == "session":
                 role = "session"
+                vis0 = bool(msg.get("visible", True))
                 _presence_conns[conn_id] = {
                     "ws": ws,
                     "sessionId": str(msg.get("sessionId") or ""),
-                    "visible": bool(msg.get("visible", True)),
+                    "visible": vis0,
+                    "hidden_since": None if vis0 else time.time(),
                     "last_seen": time.time(),
                 }
                 await _recompute_and_broadcast(_presence_conns[conn_id]["sessionId"])
@@ -363,6 +372,7 @@ async def presence_ws(ws: WebSocket) -> None:
                         newv = bool(msg["visible"])
                         if newv != c["visible"]:
                             c["visible"] = newv
+                            c["hidden_since"] = None if newv else time.time()
                             await _recompute_and_broadcast(c["sessionId"])
             elif t == "bye":
                 break

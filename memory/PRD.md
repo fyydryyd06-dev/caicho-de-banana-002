@@ -109,3 +109,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Antes: mostrava um modal overlay com botão "Tentar novamente". Agora: ao receber directive 'invalid', o LiveControlOverlay grava flag sessionStorage 'bb-invalid-retry' e redireciona o usuário para a página inicial do fluxo (PF: /pessoa-fisica, PJ: /sign-in).
 - A página de entrada lê a flag no mount e exibe aviso "Os dados informados são inválidos. Verifique e tente novamente." — PF reutiliza `error`/`.auto-error`; PJ usa banner novo `.pj-invalid-banner` no topo do form. Flag é limpa após leitura. Usuário reinicia o fluxo (novo sessionId).
 - Validado e2e PF e PJ (redirect + banner). Isolado por sessão. Sem Testing Agent.
+
+## Fix presença #2: tolerância a ocultação (2026-06)
+- Sintoma: em teste numa só máquina, focar/maximizar a janela do painel deixava a aba do site "hidden" (visibilityState) => Offline imediato.
+- Correção server-only (server.py): novo PRESENCE_HIDE_GRACE=20s. `_session_online` agora considera online se heartbeat fresco E (visible OU oculto há <= grace). Conn guarda `hidden_since`. Aplica-se imediatamente às abas já abertas (continuam com heartbeat), sem reload.
+- Resultado: alternar rapidamente p/ o painel NÃO derruba; Offline só após ocultação > ~20s, fechar aba/navegador ou perda de conexão (~9s via HB_TIMEOUT). Validado no protocolo (offline ~18.8s, volta online imediato). Backend reiniciado.
