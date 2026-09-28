@@ -22,6 +22,7 @@ from starlette.background import BackgroundTask
 
 REPO_ROOT = Path("/app")
 API_DIR = REPO_ROOT / "artifacts" / "api-server"
+DB_DIR = REPO_ROOT / "lib" / "db"
 
 
 def _load_env() -> dict[str, str]:
@@ -73,6 +74,40 @@ def _ensure_postgres() -> None:
             )
         except Exception:
             pass
+
+
+def _ensure_schema() -> None:
+    # O Postgres fica fora dos diretórios persistidos e ZERA a cada restart do
+    # pod (banco recriado vazio). Aqui recriamos o schema (idempotente via
+    # drizzle-kit push) e o seed de contas fictícias, para que Tentativas de
+    # login / Acessos e o fluxo público voltem a persistir automaticamente.
+    # NUNCA levanta exceção (não pode derrubar o startup do backend).
+    drizzle = DB_DIR / "node_modules" / ".bin" / "drizzle-kit"
+    tsx = DB_DIR / "node_modules" / ".bin" / "tsx"
+    try:
+        subprocess.run(
+            [str(drizzle), "push", "--force", "--config", "./drizzle.config.ts"],
+            cwd=str(DB_DIR),
+            env=ENV,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=120,
+        )
+    except Exception:
+        pass
+    try:
+        subprocess.run(
+            [str(tsx), "./src/seed.ts"],
+            cwd=str(DB_DIR),
+            env=ENV,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=60,
+        )
+    except Exception:
+        pass
 
 
 def _spawn_express() -> subprocess.Popen:
@@ -139,6 +174,7 @@ async def lifespan(_app: FastAPI):
     subprocess.run(["pkill", "-f", "api-server/dist/index.mjs"], check=False)
     _ensure_postgres()
     await asyncio.sleep(0.5)
+    _ensure_schema()
     _build_express()
     _express_proc = _spawn_express()
     _monitor_task = asyncio.create_task(_monitor())

