@@ -1727,6 +1727,17 @@ body {
   box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.28);
 }
 
+.donas-sms-sent {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(46, 173, 108, 0.14);
+  border: 1px solid rgba(46, 173, 108, 0.35);
+  color: #a7e8c6;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
 
 .training-app-shell {
   min-height: 100dvh;

