@@ -9,15 +9,18 @@ unchanged (no migration to FastAPI/Mongo).
 """
 
 import asyncio
+import json
 import os
 import shutil
 import signal
 import subprocess
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from starlette.background import BackgroundTask
 
 REPO_ROOT = Path("/app")
@@ -44,7 +47,101 @@ INTERNAL_BASE = f"http://127.0.0.1:{INTERNAL_PORT}"
 
 _express_proc: subprocess.Popen | None = None
 _monitor_task: asyncio.Task | None = None
+_presence_task: asyncio.Task | None = None
 _stopping = False
+
+
+# ---------------------------------------------------------------------------
+# Presença em tempo real (Online/Offline) — hub WebSocket nativo do FastAPI.
+#
+# O proxy httpx abaixo NÃO repassa WebSocket (bufferiza a resposta), então a
+# presença é resolvida diretamente aqui, no entrypoint público (porta 8001).
+# Estado 100% em memória e desacoplado do Express/Postgres: NÃO altera nem
+# depende do fluxo de Tentativas de login já existente.
+#
+# - Páginas do usuário (PF/PJ) conectam como role="session" e reportam
+#   visibilidade (Page Visibility + foco) e heartbeat curto.
+# - O painel admin conecta como role="admin" e recebe as mudanças na hora.
+# - Uma sessão está Online se ALGUMA aba dela está visível/em foco E com
+#   heartbeat fresco. Se o heartbeat sumir (queda abrupta de internet), o
+#   reaper marca Offline após o timeout curto. Fechar aba/navegador derruba o
+#   socket e o servidor detecta a saída imediatamente.
+# ---------------------------------------------------------------------------
+PRESENCE_HB_TIMEOUT = 9.0   # segurança: sem heartbeat por mais que isso => não conta como online
+PRESENCE_STALE = 45.0       # remove conexões mortas da memória
+
+# conn_id -> {"ws", "sessionId", "visible", "last_seen"}
+_presence_conns: dict[str, dict] = {}
+_admin_conns: set[WebSocket] = set()
+_online_state: dict[str, bool] = {}
+
+
+def _session_online(session_id: str) -> bool:
+    now = time.time()
+    for c in _presence_conns.values():
+        if (
+            c["sessionId"] == session_id
+            and c["visible"]
+            and (now - c["last_seen"]) <= PRESENCE_HB_TIMEOUT
+        ):
+            return True
+    return False
+
+
+def _current_online_map() -> dict[str, bool]:
+    return {sid: True for sid, on in _online_state.items() if on}
+
+
+async def _broadcast_admin(payload: dict) -> None:
+    if not _admin_conns:
+        return
+    text = json.dumps(payload)
+    dead = []
+    for ws in list(_admin_conns):
+        try:
+            await ws.send_text(text)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        _admin_conns.discard(ws)
+
+
+async def _recompute_and_broadcast(session_id: str) -> None:
+    if not session_id:
+        return
+    online = _session_online(session_id)
+    if _online_state.get(session_id) != online:
+        _online_state[session_id] = online
+        await _broadcast_admin({"t": "presence", "sessionId": session_id, "online": online})
+
+
+async def _presence_reaper() -> None:
+    # Rede de segurança: recomputa presença periodicamente para capturar quedas
+    # abruptas (heartbeat ausente) e limpa conexões mortas da memória.
+    while not _stopping:
+        try:
+            await asyncio.sleep(2)
+            now = time.time()
+            for cid in [
+                cid for cid, c in _presence_conns.items()
+                if (now - c["last_seen"]) > PRESENCE_STALE
+            ]:
+                _presence_conns.pop(cid, None)
+            session_ids = set(_online_state.keys()) | {
+                c["sessionId"] for c in _presence_conns.values()
+            }
+            for sid in session_ids:
+                await _recompute_and_broadcast(sid)
+            # Remove do mapa sessões offline sem conexões (evita crescimento).
+            for sid in [
+                sid for sid, on in list(_online_state.items())
+                if not on and not any(c["sessionId"] == sid for c in _presence_conns.values())
+            ]:
+                _online_state.pop(sid, None)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
 
 
 API_DIST = str(API_DIR / "dist" / "index.mjs")
@@ -195,7 +292,7 @@ def _kill_express() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global _express_proc, _monitor_task, _stopping
+    global _express_proc, _monitor_task, _presence_task, _stopping
     _stopping = False
     # Free the internal port from any stale process before starting.
     subprocess.run(["pkill", "-f", "api-server/dist/index.mjs"], check=False)
@@ -205,6 +302,7 @@ async def lifespan(_app: FastAPI):
     _build_express()
     _express_proc = _spawn_express()
     _monitor_task = asyncio.create_task(_monitor())
+    _presence_task = asyncio.create_task(_presence_reaper())
     await _wait_healthy()
     try:
         yield
@@ -212,11 +310,59 @@ async def lifespan(_app: FastAPI):
         _stopping = True
         if _monitor_task:
             _monitor_task.cancel()
+        if _presence_task:
+            _presence_task.cancel()
         _kill_express()
 
 
 app = FastAPI(lifespan=lifespan)
 _client = httpx.AsyncClient(base_url=INTERNAL_BASE, timeout=httpx.Timeout(60.0))
+
+
+@app.websocket("/api/presence/ws")
+async def presence_ws(ws: WebSocket) -> None:
+    await ws.accept()
+    conn_id = uuid.uuid4().hex
+    role: str | None = None
+    try:
+        while True:
+            msg = json.loads(await ws.receive_text())
+            r = msg.get("role")
+            t = msg.get("t")
+            if r == "admin":
+                role = "admin"
+                _admin_conns.add(ws)
+                await ws.send_text(json.dumps({"t": "snapshot", "online": _current_online_map()}))
+            elif r == "session":
+                role = "session"
+                _presence_conns[conn_id] = {
+                    "ws": ws,
+                    "sessionId": str(msg.get("sessionId") or ""),
+                    "visible": bool(msg.get("visible", True)),
+                    "last_seen": time.time(),
+                }
+                await _recompute_and_broadcast(_presence_conns[conn_id]["sessionId"])
+            elif t in ("hb", "vis"):
+                c = _presence_conns.get(conn_id)
+                if c:
+                    c["last_seen"] = time.time()
+                    if "visible" in msg:
+                        newv = bool(msg["visible"])
+                        if newv != c["visible"]:
+                            c["visible"] = newv
+                            await _recompute_and_broadcast(c["sessionId"])
+            elif t == "bye":
+                break
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        if role == "admin":
+            _admin_conns.discard(ws)
+        c = _presence_conns.pop(conn_id, None)
+        if c:
+            await _recompute_and_broadcast(c["sessionId"])
 
 _HOP_BY_HOP = {
     "connection",

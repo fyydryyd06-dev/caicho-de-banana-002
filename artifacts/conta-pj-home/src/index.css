@@ -1738,6 +1738,61 @@ body {
   line-height: 1.4;
 }
 
+/* Indicador de presença Online/Offline no card de Tentativas. */
+.donas-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.donas-presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.donas-presence--online {
+  color: #7ee2ad;
+  background: rgba(46, 173, 108, 0.16);
+  border: 1px solid rgba(46, 173, 108, 0.4);
+}
+
+.donas-presence--online .donas-presence-dot {
+  background: #2ead6c;
+  box-shadow: 0 0 0 rgba(46, 173, 108, 0.6);
+  animation: donas-presence-pulse 1.8s ease-out infinite;
+}
+
+.donas-presence--offline {
+  color: #8b90a6;
+  background: rgba(120, 130, 160, 0.12);
+  border: 1px solid rgba(120, 130, 160, 0.28);
+}
+
+.donas-presence--offline .donas-presence-dot {
+  background: #6b7185;
+}
+
+@keyframes donas-presence-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 173, 108, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(46, 173, 108, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 173, 108, 0);
+  }
+}
+
 
 .training-app-shell {
   min-height: 100dvh;

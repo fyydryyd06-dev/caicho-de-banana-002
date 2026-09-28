@@ -17,6 +17,7 @@ import { ArrowLeft, Eye, EyeOff, ContactRound, FileText, List, MessageCircle, Ch
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import DonasPainel from './admin/DonasPainel';
+import { PresenceClient } from './lib/presence';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const clerkPubKey = publishableKeyFromHost(
@@ -1802,6 +1803,7 @@ function App() {
   return (
     <WouterRouter base={basePath}>
       <AccessTracker />
+      <PresenceClient />
       {clerkEnabled ? <ClerkApp /> : <DemoApp />}
     </WouterRouter>
   );

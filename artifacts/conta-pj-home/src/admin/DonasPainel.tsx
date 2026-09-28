@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useAdminPresence } from '../lib/presence';
 import {
   Activity,
   ArrowRight,
@@ -508,6 +509,7 @@ function SessionHistoryModal({ session, onClose }: { session: LoginSession; onCl
 function SessionBlock({
   session,
   expanded,
+  online,
   onToggle,
   onCommand,
   onDelete,
@@ -515,6 +517,7 @@ function SessionBlock({
 }: {
   session: LoginSession;
   expanded: boolean;
+  online: boolean;
   onToggle: () => void;
   onCommand: (id: string, command: string, smsLast3?: string) => void;
   onDelete: (id: string) => void;
@@ -537,6 +540,14 @@ function SessionBlock({
             <small>{stageLabel(session.currentStep)}</small>
           </span>
           <span className="donas-session-tags">
+            <span
+              className={`donas-presence donas-presence--${online ? 'online' : 'offline'}`}
+              title={online ? 'Online — usuário com o site ativo' : 'Offline — usuário ausente'}
+              data-testid={`session-presence-${online ? 'online' : 'offline'}`}
+            >
+              <span className="donas-presence-dot" aria-hidden="true" />
+              {online ? 'Online' : 'Offline'}
+            </span>
             <span className={`donas-status donas-status--${ended ? 'failed' : 'submitted'}`}>
               {ended ? 'encerrada' : 'ativa'}
             </span>
@@ -722,6 +733,7 @@ function SessionBlock({
 
 function TentativasView() {
   const [items, setItems] = useState<LoginSession[]>([]);
+  const presence = useAdminPresence();
   const [q, setQ] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<LoginSession | null>(null);
@@ -853,6 +865,7 @@ function TentativasView() {
             key={s.id}
             session={s}
             expanded={expandedId === s.id}
+            online={presence[s.sessionId] ?? false}
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             onCommand={sendCommand}
             onDelete={deleteOne}

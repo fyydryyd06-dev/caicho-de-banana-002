@@ -85,3 +85,11 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Público (ambos os fluxos): tela de código exibe "Enviamos um SMS para você do número **XX XXXXX-X###**" com os 3 dígitos do modal. PJ já usava esse formato; PF ajustado (era "(XX) XXXXX -X###") para o mesmo texto/formato.
 - IMPORTANTE build: o api-server é bundlado por esbuild (build.mjs → dist/index.mjs) no startup do backend; editar `.ts` NÃO recompila sozinho. Após mudar arquivos em artifacts/api-server, rodar `node build.mjs` e `sudo supervisorctl restart backend`.
 - Validado e2e (screenshot dirigindo fluxo + modal real do painel): PF confirmou 123 → público "XX XXXXX-X123". Backend validado via curl (smsLast3=999). Sem Testing Agent. Sessões de teste removidas.
+
+## Presença Online/Offline em tempo real (WebSocket) (2026-06) [PF + PJ]
+- Hub WebSocket nativo no FastAPI `server.py` em `/api/presence/ws` (o proxy httpx bufferiza e NÃO repassa WS/SSE, então a presença é resolvida no próprio entrypoint 8001). Estado 100% em memória, desacoplado do Express/Postgres — não altera o fluxo de Tentativas.
+- Cliente do usuário: `src/lib/presence.ts` → `<PresenceClient/>` montado na raiz do App (persiste entre rotas). Conecta quando existe `demo-flow-session-id`. Online = `document.visibilityState==='visible' && document.hasFocus()`. Eventos visibilitychange/focus/blur/online/offline enviam `vis` na hora; heartbeat `hb` a cada 3s; `bye` em pagehide/beforeunload. Reconecta a cada 1s se cair.
+- Servidor: sessão Online se ALGUMA aba visível/em foco com heartbeat fresco. `PRESENCE_HB_TIMEOUT=9s` (rede de segurança p/ queda abrupta), reaper a cada 2s recomputa e limpa conexões mortas (`PRESENCE_STALE=45s`). Broadcast imediato aos admins conectados. Multi-aba tratado (por conexão).
+- Painel: `useAdminPresence()` (WS role=admin) → mapa sessionId→online; `SessionBlock` recebe prop `online` e mostra indicador `.donas-presence` (verde "● Online" com pulse / cinza "● Offline"). Atualiza sem recarregar. testids: `session-presence-online` / `session-presence-offline`.
+- Validado: protocolo (online/offline/close/hb-timeout), WSS via ingress, e navegador (2 contextos): entrar→Online, trocar aba→Offline, voltar→Online. Sem Testing Agent.
+- Build/deploy: server.py exige `sudo supervisorctl restart backend`. Frontend hot-reload.
