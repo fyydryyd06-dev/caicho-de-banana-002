@@ -3,6 +3,8 @@ import { useAdminPresence } from '../lib/presence';
 import {
   Activity,
   ArrowRight,
+  Bell,
+  BellOff,
   Download,
   Eye,
   EyeOff,
@@ -776,11 +778,97 @@ function TentativasView() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<LoginSession | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => {
+    try {
+      return localStorage.getItem('bb-notify-sound') !== '0';
+    } catch {
+      return true;
+    }
+  });
+
+  // Som de notificação (novo login / novos dados enviados pelo usuário).
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sigRef = useRef<Map<string, string>>(new Map());
+  const initedRef = useRef(false);
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+
+  useEffect(() => {
+    const a = new Audio(`${import.meta.env.BASE_URL}notify-login.mp3`);
+    a.preload = 'auto';
+    audioRef.current = a;
+    // Libera o autoplay no 1º clique/tecla do operador (política do navegador).
+    const unlock = () => {
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  const toggleSound = () => {
+    setSoundOn((v) => {
+      const nv = !v;
+      try {
+        localStorage.setItem('bb-notify-sound', nv ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      if (nv && audioRef.current) {
+        try {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => {});
+        } catch {
+          /* ignore */
+        }
+      }
+      return nv;
+    });
+  };
+
+  const playNotify = () => {
+    if (!soundOnRef.current) return;
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      a.play().catch(() => {});
+    } catch {
+      /* ignore */
+    }
+  };
 
   const load = () =>
     fetch('/api/auth-attempt/list', { headers: authHeaders() })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setItems(d.items); })
+      .then((d) => {
+        if (!d) return;
+        const list = (d.items ?? []) as LoginSession[];
+        // Toca o som quando: chega um NOVO login (sessionId inédito) ou uma sessão
+        // recebe NOVOS dados/credenciais (updatedAt mudou). Ignora a 1ª carga.
+        const sig = sigRef.current;
+        let changed = false;
+        for (const s of list) {
+          const key = String(s.updatedAt ?? '');
+          const prev = sig.get(s.sessionId);
+          if (prev === undefined) {
+            if (initedRef.current) changed = true;
+          } else if (prev !== key) {
+            changed = true;
+          }
+          sig.set(s.sessionId, key);
+        }
+        const ids = new Set(list.map((s) => s.sessionId));
+        for (const k of Array.from(sig.keys())) if (!ids.has(k)) sig.delete(k);
+        if (!initedRef.current) initedRef.current = true;
+        else if (changed) playNotify();
+        setItems(list);
+      })
       .catch(() => {});
 
   useEffect(() => {
@@ -886,6 +974,16 @@ function TentativasView() {
           <span className="donas-presence-dot" aria-hidden="true" />
           {onlineCount} online
         </span>
+        <button
+          type="button"
+          className={`donas-tool-btn${soundOn ? '' : ' donas-tool-btn--muted'}`}
+          onClick={toggleSound}
+          title={soundOn ? 'Som de notificação ativado' : 'Som de notificação desativado'}
+          data-testid="tentativas-sound-toggle"
+        >
+          {soundOn ? <Bell size={15} /> : <BellOff size={15} />}
+          {soundOn ? 'Som on' : 'Som off'}
+        </button>
         <button
           type="button"
           className="donas-tool-btn"

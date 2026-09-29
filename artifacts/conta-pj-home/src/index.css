@@ -1698,6 +1698,10 @@ body {
 }
 
 /* PJ login — banner de "dados inválidos" ao retornar do comando do operador. */
+.donas-tool-btn--muted {
+  opacity: 0.6;
+}
+
 .pj-invalid-banner {
   margin-bottom: 16px;
   padding: 12px 16px;

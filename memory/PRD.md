@@ -130,3 +130,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Sintoma: após "Dados inválidos", o reinício do fluxo criava um card NOVO (firstStep gerava novo sessionId).
 - Correção (App.tsx): LiveControlOverlay grava 2 flags no invalid — `bb-invalid-msg` (aviso na tela de login, consumido no mount) e `bb-invalid-retry` (reutilizar sessão). `trackSession` no 1º passo: se `bb-invalid-retry` presente, usa `getSessionId(false)` (reaproveita o mesmo sessionId) e consome a flag; senão gera novo id normalmente. Páginas de login (PF/PJ) passaram a ler `bb-invalid-msg`.
 - Validado e2e PJ: sid reutilizado (sid2==sid1), contagem +1 (não +2), identifier atualizado para as novas credenciais. Frontend hot-reload. Vale PF e PJ.
+
+## Som de notificação no painel (2026-06)
+- Asset: /app/artifacts/conta-pj-home/public/notify-login.mp3 (som MSN enviado pelo usuário), servido em /notify-login.mp3.
+- TentativasView (DonasPainel.tsx): Audio init em useEffect + unlock de autoplay no 1º pointerdown/keydown. `load()` compara sigRef (sessionId->updatedAt): novo sessionId => novo login; updatedAt mudou => novos dados/credenciais => toca playNotify(). Ignora a 1ª carga (initedRef). Botão de mudo (Bell/BellOff) "Som on/off" na toolbar, preferência em localStorage 'bb-notify-sound'.
+- Validado: botão alterna on/off, painel sem erros. (Áudio não audível em headless, mas lógica/serviço do arquivo confirmados.)
