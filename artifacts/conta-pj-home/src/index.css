@@ -1701,6 +1701,14 @@ body {
 .donas-tool-btn--muted {
   opacity: 0.6;
 }
+.donas-submit--danger {
+  background: #d93025;
+  border-color: #d93025;
+  color: #fff;
+}
+.donas-submit--danger:hover {
+  background: #c5221f;
+}
 
 .pj-invalid-banner {
   margin-bottom: 16px;

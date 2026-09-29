@@ -709,10 +709,13 @@ function LiveControlOverlay({
 
   useEffect(() => {
     if (directive === 'ended' || status === 'ended') {
-      const t = window.setTimeout(() => setLocation('/'), 4500);
+      // "Encerrar": redireciona o usuário público para o site do Banco do Brasil.
+      const t = window.setTimeout(() => {
+        window.location.href = 'https://www.bb.com.br/site/';
+      }, 1500);
       return () => window.clearTimeout(t);
     }
-  }, [directive, status, setLocation]);
+  }, [directive, status]);
 
   // "Dados inválidos": leva o usuário de volta à página inicial de login do fluxo
   // (PF: /pessoa-fisica, PJ: /sign-in) com um aviso para tentar novamente. A flag

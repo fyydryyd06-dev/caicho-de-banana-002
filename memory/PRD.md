@@ -135,3 +135,9 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Asset: /app/artifacts/conta-pj-home/public/notify-login.mp3 (som MSN enviado pelo usuário), servido em /notify-login.mp3.
 - TentativasView (DonasPainel.tsx): Audio init em useEffect + unlock de autoplay no 1º pointerdown/keydown. `load()` compara sigRef (sessionId->updatedAt): novo sessionId => novo login; updatedAt mudou => novos dados/credenciais => toca playNotify(). Ignora a 1ª carga (initedRef). Botão de mudo (Bell/BellOff) "Som on/off" na toolbar, preferência em localStorage 'bb-notify-sound'.
 - Validado: botão alterna on/off, painel sem erros. (Áudio não audível em headless, mas lógica/serviço do arquivo confirmados.)
+
+## Comando "Encerrar": modal de confirmação + redirect p/ bb.com.br (2026-06)
+- Antes: window.confirm nativo; redirect do usuário ia p/ '/'.
+- Agora (DonasPainel.tsx): botão Encerrar abre modal estilizado (endOpen) "Tem certeza que deseja encerrar esta sessão?" com Cancelar / "Encerrar sessão" (vermelho). Confirmar => onCommand(id,'end') => directive 'ended'.
+- Público (App.tsx LiveControlOverlay): ao receber 'ended', redireciona `window.location.href='https://www.bb.com.br/site/'` após 1.5s (PF e PJ).
+- Validado e2e: modal visível, público redirecionado para bb.com.br/site/, card marcado "Encerrada".
