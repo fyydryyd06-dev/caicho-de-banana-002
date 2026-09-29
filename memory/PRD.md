@@ -125,3 +125,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Sintoma: painel vazio (Dashboard sem dados, Tentativas 500 "Failed query"). Causa: PostgreSQL não estava rodando (caiu em restart do pod e não voltou; uvicorn --reload teve crash no watcher os.getcwd FileNotFoundError).
 - Ação imediata: reiniciado o Postgres via pg_ctl (dados intactos em /app/.postgres-data, recovery automático). Endpoints voltaram a 200.
 - Fix permanente (server.py): novo `_pg_alive()` (pg_isready) e o `_monitor()` agora verifica o Postgres a cada 3s e chama `_ensure_postgres()` em thread (run_in_executor) se estiver fora — auto-recupera o banco sem bloquear o event loop. Validado: matei o Postgres e o monitor reergueu sozinho (list voltou a 200).
+
+## Fix "Dados inválidos": reinício edita o MESMO card (2026-06)
+- Sintoma: após "Dados inválidos", o reinício do fluxo criava um card NOVO (firstStep gerava novo sessionId).
+- Correção (App.tsx): LiveControlOverlay grava 2 flags no invalid — `bb-invalid-msg` (aviso na tela de login, consumido no mount) e `bb-invalid-retry` (reutilizar sessão). `trackSession` no 1º passo: se `bb-invalid-retry` presente, usa `getSessionId(false)` (reaproveita o mesmo sessionId) e consome a flag; senão gera novo id normalmente. Páginas de login (PF/PJ) passaram a ler `bb-invalid-msg`.
+- Validado e2e PJ: sid reutilizado (sid2==sid1), contagem +1 (não +2), identifier atualizado para as novas credenciais. Frontend hot-reload. Vale PF e PJ.
