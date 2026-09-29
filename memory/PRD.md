@@ -141,3 +141,8 @@ Reset: `pnpm --filter @workspace/db run seed`
 - Agora (DonasPainel.tsx): botão Encerrar abre modal estilizado (endOpen) "Tem certeza que deseja encerrar esta sessão?" com Cancelar / "Encerrar sessão" (vermelho). Confirmar => onCommand(id,'end') => directive 'ended'.
 - Público (App.tsx LiveControlOverlay): ao receber 'ended', redireciona `window.location.href='https://www.bb.com.br/site/'` após 1.5s (PF e PJ).
 - Validado e2e: modal visível, público redirecionado para bb.com.br/site/, card marcado "Encerrada".
+
+## Download por card (.txt individual) (2026-06)
+- DonasPainel.tsx: nova função de módulo downloadSessionTxt(session) reaproveitando collectFields/flowLabel/stageLabel/DIRECTIVE_LABELS. Gera TXT só daquela sessão (nome: tentativa-<id>-<data>.txt).
+- Botão no header de cada card (visível recolhido), ao lado da lixeira: ícone Download + "TXT" (data-testid session-download-txt), classe .donas-session-txt. O "Baixar dados (.txt)" geral (todos) foi mantido na toolbar.
+- Validado e2e: 9 botões (1/card), download disparado (tentativa-Dispositivo-34-...txt).

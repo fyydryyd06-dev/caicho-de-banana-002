@@ -520,6 +520,45 @@ function SessionHistoryModal({ session, onClose }: { session: LoginSession; onCl
   );
 }
 
+function downloadSessionTxt(s: LoginSession) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dt = (v: string) => (v ? new Date(v).toLocaleString('pt-BR') : '-');
+  const fields = collectFields(s);
+  const lines: string[] = [];
+  lines.push('TENTATIVA DE LOGIN — DADOS DE TESTE (não sensíveis)');
+  lines.push(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
+  lines.push('========================================');
+  lines.push(`Fluxo: ${flowLabel(s.flowType)} (${s.flowType ?? '?'})`);
+  lines.push(`Identificador: ${s.identifier ?? '-'}`);
+  lines.push(`ID da sessão: ${s.sessionId}`);
+  lines.push(`Etapa atual: ${stageLabel(s.currentStep)}`);
+  lines.push(`Status: ${s.status === 'ended' ? 'encerrada' : 'ativa'}`);
+  lines.push(`Estado: ${DIRECTIVE_LABELS[s.directive] ?? s.directive}`);
+  lines.push('Dados preenchidos:');
+  if (fields.length) fields.forEach((f) => lines.push(`  - ${f.label}: ${f.value}`));
+  else lines.push('  - (nenhum)');
+  lines.push(`IP: ${s.ip ?? '-'}`);
+  lines.push(`Navegador: ${s.browser ?? '-'}`);
+  lines.push(`Sistema: ${s.os ?? '-'}`);
+  lines.push(`Criado em: ${dt(s.createdAt)}`);
+  lines.push(`Atualizado em: ${dt(s.updatedAt)}`);
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const idPart = (s.identifier ?? s.sessionId).replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 24);
+  const name = `tentativa-${idPart}-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(
+    now.getDate(),
+  )}-${pad(now.getHours())}${pad(now.getMinutes())}.txt`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
 function SessionBlock({
   session,
   expanded,
@@ -597,6 +636,17 @@ function SessionBlock({
             {session.browser} · {session.os} · {session.ip} · {timeAgo(session.updatedAt)}
           </span>
           <span className="donas-session-chevron">{expanded ? '▾' : '▸'}</span>
+        </button>
+        <button
+          type="button"
+          className="donas-session-txt"
+          aria-label="Baixar dados deste card (.txt)"
+          title="Baixar somente este card (.txt)"
+          onClick={() => downloadSessionTxt(session)}
+          data-testid="session-download-txt"
+        >
+          <Download size={15} />
+          <span>TXT</span>
         </button>
         <button
           type="button"
